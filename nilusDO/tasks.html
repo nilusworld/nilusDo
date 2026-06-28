@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>My Tasks</title>
+
+<!-- ─── FIREBASE CONFIG ─────────────────────────────────────────────────────
+     Replace the values below with your own Firebase project config.
+     Firebase Console → Project Settings → Your Apps → SDK setup → Config
+────────────────────────────────────────────────────────────────────────── -->
+<script>
+const FIREBASE_CONFIG = {
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT.firebaseapp.com",
+  databaseURL:       "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId:         "YOUR_PROJECT",
+  storageBucket:     "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
+};
+</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --bg:      #f2f2f7;
+  --card:    #ffffff;
+  --card2:   #f7f7fa;
+  --text:    #1c1c1e;
+  --text2:   #3a3a3c;
+  --muted:   #8e8e93;
+  --border:  rgba(0,0,0,0.09);
+  --r:       14px;
+  --sh:      0 1px 4px rgba(0,0,0,0.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:     #000;
+    --card:   #1c1c1e;
+    --card2:  #2c2c2e;
+    --text:   #f2f2f7;
+    --text2:  #ebebf5;
+    --muted:  #636366;
+    --border: rgba(255,255,255,0.1);
+    --sh:     0 1px 4px rgba(0,0,0,0.4);
+  }
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  max-width: 720px;
+  margin: 0 auto;
+  padding-bottom: 170px;
+}
+
+/* ── Header ── */
+.hdr {
+  padding: 1.25rem 1.25rem 0;
+  position: sticky; top: 0;
+  background: var(--bg);
+  z-index: 30;
+}
+.hdr-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.hdr h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+.sync-indicator {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+.sync-indicator.online  { background: #d1f5e0; color: #1a7a3f; }
+.sync-indicator.offline { background: #fff3cd; color: #856404; }
+.sync-indicator.error   { background: #fde8e8; color: #9b1c1c; }
+@media (prefers-color-scheme: dark) {
+  .sync-indicator.online  { background: #0d3b20; color: #4ade80; }
+  .sync-indicator.offline { background: #3d2e00; color: #fbbf24; }
+  .sync-indicator.error   { background: #3b0f0f; color: #f87171; }
+}
+
+/* ── Tabs ── */
+.tabs {
+  display: flex; gap: 7px;
+  overflow-x: auto; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 1rem;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex-shrink: 0;
+  padding: 7px 16px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  background: var(--card);
+  color: var(--muted);
+  white-space: nowrap;
+  transition: all 0.15s;
+  position: relative;
+}
+.tab.active { color: #fff; border-color: transparent; }
+.tab-count {
+  display: inline-block; margin-left: 4px;
+  background: rgba(255,255,255,0.28);
+  border-radius: 9px; font-size: 11px;
+  padding: 1px 5px; font-weight: 600;
+}
+.tab:not(.active) .tab-count {
+  background: var(--border); color: var(--muted);
+}
+
+/* ── Section header ── */
+.sec-hdr {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1.25rem 0.6rem;
+}
+.sec-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.clear-btn {
+  background: none; border: none;
+  color: var(--muted); font-size: 12px;
+  cursor: pointer; font-family: inherit;
+}
+.clear-btn:hover { color: #ff3b30; }
+
+/* ── Task list ── */
+.tasks { padding: 0 1rem; display: flex; flex-direction: column; gap: 6px; }
+
+/* ── All view: category group ── */
+.cat-group { margin-bottom: 1.25rem; }
+.cat-group-hdr {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 0 8px 2px;
+}
+.cat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.cat-group-label { font-size: 13px; font-weight: 600; color: var(--text2); }
+.cat-group-count { font-size: 12px; color: var(--muted); }
+.cat-group-tasks { display: flex; flex-direction: column; gap: 6px; }
+
+/* ── Task item ── */
+.task {
+  display: flex; align-items: center; gap: 11px;
+  background: var(--card); border-radius: var(--r);
+  padding: 13px 13px; box-shadow: var(--sh);
+  transition: opacity 0.2s;
+  user-select: none; -webkit-user-select: none;
+}
+.task.done { opacity: 0.38; }
+.check {
+  width: 23px; height: 23px; border-radius: 50%;
+  border: 2px solid #ccc; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.15s;
+  font-size: 12px; color: #fff; font-weight: 600;
+}
+.task.done .check { border-color: transparent; }
+.task-lbl { font-size: 15px; flex: 1; line-height: 1.4; }
+.task.done .task-lbl { text-decoration: line-through; color: var(--muted); }
+.del {
+  background: none; border: none; color: var(--muted);
+  font-size: 15px; cursor: pointer; padding: 4px 6px;
+  border-radius: 6px; opacity: 0; transition: opacity 0.15s; line-height: 1;
+}
+.task:hover .del { opacity: 1; }
+@media (hover: none) { .del { opacity: 0.35; } }
+
+/* ── Empty state ── */
+.empty {
+  text-align: center; padding: 3.5rem 1rem 1.5rem;
+  color: var(--muted);
+}
+.empty-icon { font-size: 44px; margin-bottom: 0.6rem; }
+.empty-msg { font-size: 15px; line-height: 1.6; }
+
+/* ── Bottom panel ── */
+.panel {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  max-width: 720px; margin: 0 auto;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  padding: 0.6rem 1rem 1rem;
+  z-index: 40;
+}
+.presets-wrap {
+  max-height: 0; overflow: hidden;
+  transition: max-height 0.25s ease;
+}
+.presets-wrap.open { max-height: 120px; }
+.presets-scroll {
+  display: flex; gap: 6px;
+  overflow-x: auto; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 8px;
+}
+.presets-scroll::-webkit-scrollbar { display: none; }
+.chip {
+  flex-shrink: 0;
+  padding: 6px 13px; border-radius: 14px;
+  font-size: 13px; border: 1.5px solid var(--border);
+  background: var(--bg); color: var(--text2);
+  cursor: pointer; white-space: nowrap; font-family: inherit;
+  transition: transform 0.1s;
+}
+.chip:active { transform: scale(0.94); }
+
+.input-row { display: flex; gap: 7px; align-items: center; }
+.ti {
+  flex: 1; border: 1.5px solid var(--border); border-radius: 12px;
+  padding: 11px 13px; font-size: 15px;
+  background: var(--bg); color: var(--text);
+  outline: none; font-family: inherit; transition: border-color 0.15s;
+}
+.ti:focus { border-color: #007AFF; }
+.ti::placeholder { color: var(--muted); }
+
+.fab {
+  width: 44px; height: 44px; border-radius: 50%; border: none;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 20px; flex-shrink: 0;
+  transition: transform 0.12s;
+}
+.fab:active { transform: scale(0.88); }
+.mic { background: var(--bg); border: 1.5px solid var(--border); color: var(--muted); }
+.mic.on { background: #ff3b30; border-color: #ff3b30; color: #fff; animation: pulse .8s infinite; }
+@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
+.plus { color: #fff; }
+
+.panel-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 5px;
+}
+.foot-btn {
+  background: none; border: none; font-family: inherit;
+  font-size: 13px; cursor: pointer; padding: 2px 0;
+  display: flex; align-items: center; gap: 4px;
+}
+
+/* ── Setup overlay ── */
+.setup-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6); z-index: 200;
+  align-items: center; justify-content: center; padding: 1.5rem;
+}
+.setup-overlay.show { display: flex; }
+.setup-card {
+  background: var(--card); border-radius: 20px;
+  padding: 1.75rem; width: 100%; max-width: 460px;
+  max-height: 90vh; overflow-y: auto;
+}
+.setup-card h2 { font-size: 20px; font-weight: 700; margin-bottom: 0.5rem; }
+.setup-card p { font-size: 14px; color: var(--muted); margin-bottom: 1.25rem; line-height: 1.6; }
+.setup-steps { margin-bottom: 1.25rem; }
+.step {
+  display: flex; gap: 10px; margin-bottom: 12px;
+  font-size: 14px; line-height: 1.5;
+}
+.step-num {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #007AFF; color: #fff;
+  font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 1px;
+}
+.setup-code {
+  background: var(--bg); border-radius: 10px;
+  padding: 12px; font-family: monospace; font-size: 12px;
+  color: var(--text2); margin-bottom: 1.25rem; line-height: 1.7;
+  border: 1px solid var(--border);
+}
+.setup-btn {
+  width: 100%; padding: 13px; border-radius: 12px;
+  border: none; font-size: 15px; font-weight: 600;
+  cursor: pointer; font-family: inherit;
+  background: #007AFF; color: #fff; margin-bottom: 8px;
+}
+.setup-skip {
+  width: 100%; padding: 11px; border-radius: 12px;
+  border: none; font-size: 14px; cursor: pointer; font-family: inherit;
+  background: var(--bg); color: var(--muted);
+}
+</style>
+</head>
+<body>
+
+<!-- ── Setup overlay (shown when Firebase not configured) ── -->
+<div class="setup-overlay" id="setupOverlay">
+  <div class="setup-card">
+    <h2>🔥 Connect Firebase</h2>
+    <p>One-time setup to sync tasks between your PC and iPad in real time.</p>
+    <div class="setup-steps">
+      <div class="step"><div class="step-num">1</div><div>Go to <strong>console.firebase.google.com</strong> → Create a project → Disable Analytics → Continue</div></div>
+      <div class="step"><div class="step-num">2</div><div>Build → Realtime Database → Create database → Start in <strong>test mode</strong></div></div>
+      <div class="step"><div class="step-num">3</div><div>Project Settings (gear) → Your Apps → &lt;/&gt; Web → Register app → Copy the config</div></div>
+      <div class="step"><div class="step-num">4</div><div>Open <code>tasks.html</code> in a text editor and replace the <code>FIREBASE_CONFIG</code> at the top with your config</div></div>
+    </div>
+    <div class="setup-code">const FIREBASE_CONFIG = &#123;<br>
+&nbsp;&nbsp;apiKey: "AIza...",<br>
+&nbsp;&nbsp;databaseURL: "https://your-project-rtdb.firebaseio.com",<br>
+&nbsp;&nbsp;...<br>
+&#125;;</div>
+    <button class="setup-skip" onclick="dismissSetup()">Use offline for now (no sync)</button>
+  </div>
+</div>
+
+<!-- ── Main UI ── -->
+<div class="hdr">
+  <div class="hdr-row">
+    <h1>My Tasks</h1>
+    <span class="sync-indicator offline" id="syncBadge">⏺ Offline</span>
+  </div>
+  <div class="tabs" id="tabs"></div>
+</div>
+
+<div class="sec-hdr">
+  <span class="sec-title" id="secTitle"></span>
+  <button class="clear-btn" onclick="clearDone()">Clear done</button>
+</div>
+
+<div class="tasks" id="taskList"></div>
+
+<div class="panel">
+  <div class="presets-wrap" id="presetsWrap">
+    <div class="presets-scroll" id="presetsScroll"></div>
+  </div>
+  <div class="input-row">
+    <input class="ti" id="ti" placeholder="Add a task..." onkeydown="if(event.key==='Enter')addTask()">
+    <button class="fab mic" id="mic" onclick="toggleVoice()" title="Speak a task">🎤</button>
+    <button class="fab plus" id="plusBtn" onclick="addTask()" title="Add">+</button>
+  </div>
+  <div class="panel-foot">
+    <button class="foot-btn" id="presetToggleBtn" onclick="togglePresets()" style="color:var(--muted)">
+      <span id="presetArr">▸</span> Quick presets
+    </button>
+    <button class="foot-btn" onclick="togglePresets()" style="color:var(--muted); display:none" id="hidePresetBtn">
+    </button>
+  </div>
+</div>
+
+<script>
+// ─── Categories ─────────────────────────────────────────────────────────────
+const CATS = [
+  { id:'aws',          label:'AWS Server',    color:'#378ADD',
+    presets:['Check server health','Review CloudWatch alerts','Check billing','Update security groups','Verify backups','Review EC2 usage','Check S3 buckets','Update IAM permissions','Review auto-scaling'] },
+  { id:'eps',          label:'ePS CC Server', color:'#7F77DD',
+    presets:['Check server status','Review error logs','Restart services','Update config','Monitor performance','Check disk space','Clear cache','Review DB connections','Check SSL certs'] },
+  { id:'regression',   label:'Regression',    color:'#1D9E75',
+    presets:['Run regression suite','Review test results','Log failed tests','Update test cases','Sign off release','Compare test runs','Re-run flaky tests','Update test docs','Smoke test deploy'] },
+  { id:'meetings',     label:'Meetings',      color:'#D85A30',
+    presets:['Prepare agenda','Send invite','Take meeting notes','Send follow-up','Update action items','Book meeting room','Share recording','Review decisions'] },
+  { id:'calls',        label:'Calls',         color:'#BA7517',
+    presets:['Prepare talking points','Log call notes','Send follow-up email','Schedule next call','Update contact info','Share call summary','Send proposal'] },
+  { id:'integrations', label:'Integrations',  color:'#D4537E',
+    presets:['Test API endpoint','Check integration logs','Update API keys','Document changes','Verify webhook','Review error rate','Check rate limits','Update OAuth tokens','Test sandbox'] },
+];
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let activeTab = 'all';
+let tasks = {};           // { catId: [ {id, text, done}, ... ] }
+let presetsOpen = false;
+let recog = null;
+let db = null;
+let setupDismissed = false;
+
+CATS.forEach(c => { tasks[c.id] = []; });
+
+// ─── Firebase ────────────────────────────────────────────────────────────────
+const configured = FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY';
+
+function initFirebase() {
+  if (!configured) { showSetup(); return; }
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.database();
+    db.ref('.info/connected').on('value', snap => {
+      setSyncBadge(snap.val() ? 'online' : 'offline');
+    });
+    db.ref('tasks').on('value', snap => {
+      const val = snap.val();
+      if (val) {
+        CATS.forEach(c => { tasks[c.id] = val[c.id] ? Object.values(val[c.id]) : []; });
+      } else {
+        CATS.forEach(c => { tasks[c.id] = []; });
+      }
+      render();
+    });
+    setSyncBadge('online');
+  } catch(e) {
+    console.error('Firebase error', e);
+    setSyncBadge('error');
+    loadLocal();
+  }
+}
+
+function saveRemote() {
+  if (!db) { saveLocal(); return; }
+  const data = {};
+  CATS.forEach(c => {
+    data[c.id] = {};
+    tasks[c.id].forEach(t => { data[c.id][t.id] = t; });
+  });
+  db.ref('tasks').set(data).catch(() => saveLocal());
+}
+
+function saveLocal() {
+  localStorage.setItem('mytasks_v3', JSON.stringify(tasks));
+}
+
+function loadLocal() {
+  const raw = localStorage.getItem('mytasks_v3');
+  if (raw) { try { const d = JSON.parse(raw); CATS.forEach(c => { tasks[c.id] = d[c.id] || []; }); } catch(e){} }
+}
+
+function setSyncBadge(state) {
+  const b = document.getElementById('syncBadge');
+  b.className = 'sync-indicator ' + state;
+  b.textContent = state === 'online' ? '● Live sync' : state === 'offline' ? '⏺ Offline' : '⚠ Sync error';
+}
+
+// ─── Setup overlay ───────────────────────────────────────────────────────────
+function showSetup() {
+  document.getElementById('setupOverlay').classList.add('show');
+  loadLocal();
+}
+function dismissSetup() {
+  setupDismissed = true;
+  document.getElementById('setupOverlay').classList.remove('show');
+  loadLocal();
+  render();
+}
+
+// ─── Render ──────────────────────────────────────────────────────────────────
+function render() {
+  renderTabs();
+  renderSecTitle();
+  if (activeTab === 'all') renderAll();
+  else renderCat();
+  renderPresets();
+  updatePlusColor();
+}
+
+function renderTabs() {
+  const allCount = CATS.reduce((n, c) => n + tasks[c.id].filter(t => !t.done).length, 0);
+  const allBadge = allCount > 0 ? `<span class="tab-count">${allCount}</span>` : '';
+  let html = `<button class="tab ${activeTab==='all'?'active':''}"
+    style="${activeTab==='all'?'background:#555':'background:var(--card)'}"
+    onclick="switchTab('all')">All${allBadge}</button>`;
+
+  CATS.forEach(c => {
+    const n = tasks[c.id].filter(t => !t.done).length;
+    const badge = n > 0 ? `<span class="tab-count">${n}</span>` : '';
+    html += `<button class="tab ${activeTab===c.id?'active':''}"
+      style="${activeTab===c.id?'background:'+c.color:''}"
+      onclick="switchTab('${c.id}')">${c.label}${badge}</button>`;
+  });
+  document.getElementById('tabs').innerHTML = html;
+}
+
+function renderSecTitle() {
+  let label, count;
+  if (activeTab === 'all') {
+    const total  = CATS.reduce((n,c) => n + tasks[c.id].length, 0);
+    const done   = CATS.reduce((n,c) => n + tasks[c.id].filter(t=>t.done).length, 0);
+    label = 'All tasks';
+    count = total ? ` · ${total - done} left` : '';
+  } else {
+    const cat = getCat();
+    const list = tasks[activeTab];
+    const done = list.filter(t=>t.done).length;
+    label = cat.label;
+    count = list.length ? ` · ${list.length - done} left` : '';
+  }
+  document.getElementById('secTitle').textContent = label + count;
+}
+
+function renderAll() {
+  const el = document.getElementById('taskList');
+  const totalTasks = CATS.reduce((n,c)=>n+tasks[c.id].length,0);
+  if (!totalTasks) {
+    el.innerHTML = `<div class="empty">
+      <div class="empty-icon">🗂️</div>
+      <div class="empty-msg">Nothing here yet.<br>Pick a category tab to add your first task.</div>
+    </div>`;
+    return;
+  }
+
+  let html = '';
+  CATS.forEach(c => {
+    const list = tasks[c.id];
+    if (!list.length) return;
+    const pending = list.filter(t=>!t.done).length;
+    html += `<div class="cat-group">
+      <div class="cat-group-hdr">
+        <div class="cat-dot" style="background:${c.color}"></div>
+        <span class="cat-group-label">${c.label}</span>
+        <span class="cat-group-count">${pending} left</span>
+      </div>
+      <div class="cat-group-tasks">`;
+    list.forEach((t, i) => {
+      html += taskHtml(t, i, c);
+    });
+    html += `</div></div>`;
+  });
+  el.innerHTML = html;
+}
+
+function renderCat() {
+  const el = document.getElementById('taskList');
+  const cat = getCat();
+  const list = tasks[activeTab];
+  if (!list.length) {
+    el.innerHTML = `<div class="empty">
+      <div class="empty-icon">📋</div>
+      <div class="empty-msg">No tasks yet —<br>type below or tap Quick presets</div>
+    </div>`;
+    return;
+  }
+  el.innerHTML = list.map((t,i) => taskHtml(t, i, cat)).join('');
+}
+
+function taskHtml(t, i, cat) {
+  const catId = cat.id;
+  return `<div class="task ${t.done?'done':''}">
+    <div class="check" style="${t.done?'background:'+cat.color+';border-color:'+cat.color:'border-color:'+cat.color+'99'}"
+      onclick="toggleTask('${catId}',${i})">${t.done?'✓':''}</div>
+    <span class="task-lbl">${esc(t.text)}</span>
+    <button class="del" onclick="delTask('${catId}',${i})">✕</button>
+  </div>`;
+}
+
+function renderPresets() {
+  const cat = activeTab === 'all' ? null : getCat();
+  const el = document.getElementById('presetsScroll');
+  if (!cat) { el.innerHTML = ''; return; }
+  el.innerHTML = cat.presets.map(p =>
+    `<button class="chip" onclick="addTask(${JSON.stringify(p)})">${esc(p)}</button>`
+  ).join('');
+}
+
+function updatePlusColor() {
+  const cat = activeTab === 'all' ? null : getCat();
+  document.getElementById('plusBtn').style.background = cat ? cat.color : '#555';
+}
+
+// ─── Actions ─────────────────────────────────────────────────────────────────
+function switchTab(id) {
+  activeTab = id;
+  presetsOpen = false;
+  document.getElementById('presetsWrap').classList.remove('open');
+  document.getElementById('presetArr').textContent = '▸';
+  const ti = document.getElementById('ti');
+  ti.placeholder = id === 'all' ? 'Select a category tab to add tasks' : 'Add to ' + getCat().label + '...';
+  render();
+}
+
+function addTask(text) {
+  if (activeTab === 'all') {
+    alert('Pick a category tab first, then add a task.');
+    return;
+  }
+  const ti = document.getElementById('ti');
+  const t = (text !== undefined ? text : ti.value).trim();
+  if (!t) { ti.focus(); return; }
+  tasks[activeTab].unshift({ id: 't' + Date.now(), text: t, done: false });
+  saveRemote();
+  if (text === undefined) ti.value = '';
+  render();
+}
+
+function toggleTask(catId, i) {
+  tasks[catId][i].done = !tasks[catId][i].done;
+  saveRemote();
+  render();
+}
+
+function delTask(catId, i) {
+  tasks[catId].splice(i, 1);
+  saveRemote();
+  render();
+}
+
+function clearDone() {
+  if (activeTab === 'all') {
+    CATS.forEach(c => { tasks[c.id] = tasks[c.id].filter(t => !t.done); });
+  } else {
+    tasks[activeTab] = tasks[activeTab].filter(t => !t.done);
+  }
+  saveRemote();
+  render();
+}
+
+function togglePresets() {
+  if (activeTab === 'all') return;
+  presetsOpen = !presetsOpen;
+  document.getElementById('presetsWrap').classList.toggle('open', presetsOpen);
+  document.getElementById('presetArr').textContent = presetsOpen ? '▾' : '▸';
+}
+
+// ─── Voice ───────────────────────────────────────────────────────────────────
+function toggleVoice() {
+  if (activeTab === 'all') { alert('Pick a category tab first.'); return; }
+  const btn = document.getElementById('mic');
+  if (recog) { recog.stop(); recog = null; btn.classList.remove('on'); return; }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert('Voice works in Chrome and Safari. Open the file there.'); return; }
+  recog = new SR();
+  recog.lang = 'en-US';
+  recog.interimResults = false;
+  recog.onresult = e => { addTask(e.results[0][0].transcript); };
+  recog.onend = () => { btn.classList.remove('on'); recog = null; };
+  recog.onerror = () => { btn.classList.remove('on'); recog = null; };
+  recog.start();
+  btn.classList.add('on');
+}
+
+// ─── Utils ───────────────────────────────────────────────────────────────────
+function getCat() { return CATS.find(c => c.id === activeTab); }
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── Boot ────────────────────────────────────────────────────────────────────
+initFirebase();
+switchTab('all');
+</script>
+</body>
+</html>
