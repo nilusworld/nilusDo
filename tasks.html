@@ -5,10 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>My Tasks</title>
 
-<!-- ─── FIREBASE CONFIG ─────────────────────────────────────────────────────
-     Replace the values below with your own Firebase project config.
-     Firebase Console → Project Settings → Your Apps → SDK setup → Config
-────────────────────────────────────────────────────────────────────────── -->
 <script>
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyArgFh2Dme4TR3-NgWsE3BwLPWrDi9sgxk",
@@ -20,7 +16,6 @@ const FIREBASE_CONFIG = {
   appId:             "1:941254250284:web:9d72028b36e5b8eebaa689"
 };
 </script>
-
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
@@ -28,15 +23,16 @@ const FIREBASE_CONFIG = {
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
 :root {
-  --bg:      #f2f2f7;
-  --card:    #ffffff;
-  --card2:   #f7f7fa;
-  --text:    #1c1c1e;
-  --text2:   #3a3a3c;
-  --muted:   #8e8e93;
-  --border:  rgba(0,0,0,0.09);
-  --r:       14px;
-  --sh:      0 1px 4px rgba(0,0,0,0.06);
+  --bg:     #f2f2f7;
+  --card:   #ffffff;
+  --card2:  #f0f0f5;
+  --text:   #1c1c1e;
+  --text2:  #3a3a3c;
+  --muted:  #8e8e93;
+  --border: rgba(0,0,0,0.09);
+  --r:      14px;
+  --sh:     0 1px 4px rgba(0,0,0,0.07);
+  --accent: #007AFF;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -47,7 +43,7 @@ const FIREBASE_CONFIG = {
     --text2:  #ebebf5;
     --muted:  #636366;
     --border: rgba(255,255,255,0.1);
-    --sh:     0 1px 4px rgba(0,0,0,0.4);
+    --sh:     0 1px 5px rgba(0,0,0,0.4);
   }
 }
 
@@ -56,93 +52,87 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
-  max-width: 720px;
+  max-width: 960px;
   margin: 0 auto;
-  padding-bottom: 170px;
+  padding-bottom: 185px;
 }
 
 /* ── Header ── */
 .hdr {
-  padding: 1.25rem 1.25rem 0;
+  padding: 1.1rem 1.25rem 0;
   position: sticky; top: 0;
-  background: var(--bg);
-  z-index: 30;
+  background: var(--bg); z-index: 30;
 }
 .hdr-row {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 1rem;
+  margin-bottom: 0.85rem;
 }
-.hdr h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
-.sync-indicator {
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-weight: 500;
+.hdr h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+.hdr-right { display: flex; align-items: center; gap: 8px; }
+
+.sync-badge {
+  font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 500;
 }
-.sync-indicator.online  { background: #d1f5e0; color: #1a7a3f; }
-.sync-indicator.offline { background: #fff3cd; color: #856404; }
-.sync-indicator.error   { background: #fde8e8; color: #9b1c1c; }
+.sync-badge.online  { background:#d1f5e0; color:#1a7a3f; }
+.sync-badge.offline { background:#fff3cd; color:#856404; }
+.sync-badge.error   { background:#fde8e8; color:#9b1c1c; }
 @media (prefers-color-scheme: dark) {
-  .sync-indicator.online  { background: #0d3b20; color: #4ade80; }
-  .sync-indicator.offline { background: #3d2e00; color: #fbbf24; }
-  .sync-indicator.error   { background: #3b0f0f; color: #f87171; }
+  .sync-badge.online  { background:#0d3b20; color:#4ade80; }
+  .sync-badge.offline { background:#3d2e00; color:#fbbf24; }
+  .sync-badge.error   { background:#3b0f0f; color:#f87171; }
 }
 
-/* ── Tabs ── */
-.tabs {
-  display: flex; gap: 7px;
-  overflow-x: auto; scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 1rem;
+.icon-btn {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: none; background: var(--card);
+  color: var(--muted); font-size: 15px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--sh); transition: transform 0.1s;
 }
-.tabs::-webkit-scrollbar { display: none; }
+.icon-btn:active { transform: scale(0.88); }
+
+/* ── Tabs — wrap to 2 lines ── */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 0.8rem;
+}
+
 .tab {
-  flex-shrink: 0;
-  padding: 7px 16px;
+  padding: 7px 14px;
   border-radius: 20px;
   border: 1.5px solid var(--border);
   font-size: 13px; font-weight: 500;
   cursor: pointer;
-  background: var(--card);
-  color: var(--muted);
+  background: var(--card); color: var(--muted);
   white-space: nowrap;
   transition: all 0.15s;
-  position: relative;
+  display: flex; align-items: center; gap: 5px;
 }
 .tab.active { color: #fff; border-color: transparent; }
+
 .tab-count {
-  display: inline-block; margin-left: 4px;
-  background: rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.3);
   border-radius: 9px; font-size: 11px;
   padding: 1px 5px; font-weight: 600;
 }
-.tab:not(.active) .tab-count {
-  background: var(--border); color: var(--muted);
-}
+.tab:not(.active) .tab-count { background: var(--border); color: var(--muted); }
 
 /* ── Section header ── */
 .sec-hdr {
-  display: flex; align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 1.25rem 0.6rem;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.3rem 1.25rem 0.6rem;
 }
 .sec-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
-.clear-btn {
-  background: none; border: none;
-  color: var(--muted); font-size: 12px;
-  cursor: pointer; font-family: inherit;
-}
+.clear-btn { background: none; border: none; color: var(--muted); font-size: 12px; cursor: pointer; font-family: inherit; }
 .clear-btn:hover { color: #ff3b30; }
 
-/* ── Task list ── */
+/* ── Tasks ── */
 .tasks { padding: 0 1rem; display: flex; flex-direction: column; gap: 6px; }
 
-/* ── All view: category group ── */
 .cat-group { margin-bottom: 1.25rem; }
-.cat-group-hdr {
-  display: flex; align-items: center; gap: 8px;
-  padding: 0 0 8px 2px;
-}
+.cat-group-hdr { display: flex; align-items: center; gap: 8px; padding: 0 2px 8px; }
 .cat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 .cat-group-label { font-size: 13px; font-weight: 600; color: var(--text2); }
 .cat-group-count { font-size: 12px; color: var(--muted); }
@@ -150,69 +140,101 @@ body {
 
 /* ── Task item ── */
 .task {
-  display: flex; align-items: center; gap: 11px;
+  display: flex; align-items: flex-start; gap: 11px;
   background: var(--card); border-radius: var(--r);
-  padding: 13px 13px; box-shadow: var(--sh);
+  padding: 12px 13px; box-shadow: var(--sh);
   transition: opacity 0.2s;
   user-select: none; -webkit-user-select: none;
 }
 .task.done { opacity: 0.38; }
+
 .check {
-  width: 23px; height: 23px; border-radius: 50%;
+  width: 24px; height: 24px; border-radius: 50%;
   border: 2px solid #ccc; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; transition: all 0.15s;
-  font-size: 12px; color: #fff; font-weight: 600;
+  font-size: 12px; color: #fff; font-weight: 700;
+  margin-top: 1px;
 }
 .task.done .check { border-color: transparent; }
-.task-lbl { font-size: 15px; flex: 1; line-height: 1.4; }
+
+.task-body { flex: 1; min-width: 0; }
+.task-lbl { font-size: 15px; line-height: 1.4; word-break: break-word; }
 .task.done .task-lbl { text-decoration: line-through; color: var(--muted); }
+
+.task-meta { display: flex; align-items: center; gap: 8px; margin-top: 5px; flex-wrap: wrap; }
+.created-lbl { font-size: 11px; color: var(--muted); }
+
+/* due date badges */
+.due {
+  font-size: 11px; padding: 2px 8px; border-radius: 8px;
+  font-weight: 500; cursor: pointer; white-space: nowrap;
+}
+.due-add      { color: var(--muted); background: var(--card2); }
+.due-overdue  { background: #fde8e8; color: #9b1c1c; }
+.due-today    { background: #fff3cd; color: #7d5a00; }
+.due-tomorrow { background: #e8f5e9; color: #1b5e20; }
+.due-soon     { background: #e3f2fd; color: #0d47a1; }
+.due-future   { background: var(--card2); color: var(--muted); }
+@media (prefers-color-scheme: dark) {
+  .due-add      { background: var(--card2); }
+  .due-overdue  { background: #3b0f0f; color: #f87171; }
+  .due-today    { background: #3d2e00; color: #fbbf24; }
+  .due-tomorrow { background: #0d3b20; color: #4ade80; }
+  .due-soon     { background: #1e3a5f; color: #93c5fd; }
+  .due-future   { background: var(--card2); color: var(--muted); }
+}
+
 .del {
   background: none; border: none; color: var(--muted);
-  font-size: 15px; cursor: pointer; padding: 4px 6px;
-  border-radius: 6px; opacity: 0; transition: opacity 0.15s; line-height: 1;
+  font-size: 14px; cursor: pointer; padding: 4px 4px;
+  border-radius: 6px; opacity: 0; flex-shrink: 0;
+  margin-top: 1px; line-height: 1; transition: opacity 0.15s;
 }
 .task:hover .del { opacity: 1; }
 @media (hover: none) { .del { opacity: 0.35; } }
 
-/* ── Empty state ── */
-.empty {
-  text-align: center; padding: 3.5rem 1rem 1.5rem;
-  color: var(--muted);
-}
+/* ── Empty ── */
+.empty { text-align: center; padding: 3.5rem 1rem 1.5rem; color: var(--muted); }
 .empty-icon { font-size: 44px; margin-bottom: 0.6rem; }
-.empty-msg { font-size: 15px; line-height: 1.6; }
+.empty-msg { font-size: 15px; line-height: 1.7; }
 
 /* ── Bottom panel ── */
 .panel {
   position: fixed; bottom: 0; left: 0; right: 0;
-  max-width: 720px; margin: 0 auto;
-  background: var(--card);
-  border-top: 1px solid var(--border);
-  padding: 0.6rem 1rem 1rem;
-  z-index: 40;
+  max-width: 960px; margin: 0 auto;
+  background: var(--card); border-top: 1px solid var(--border);
+  padding: 0.55rem 1rem 1rem; z-index: 40;
 }
-.presets-wrap {
-  max-height: 0; overflow: hidden;
-  transition: max-height 0.25s ease;
-}
-.presets-wrap.open { max-height: 120px; }
+
+.presets-wrap { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
+.presets-wrap.open { max-height: 130px; }
 .presets-scroll {
-  display: flex; gap: 6px;
-  overflow-x: auto; scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 8px;
+  display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch; padding-bottom: 8px;
 }
 .presets-scroll::-webkit-scrollbar { display: none; }
 .chip {
-  flex-shrink: 0;
-  padding: 6px 13px; border-radius: 14px;
+  flex-shrink: 0; padding: 6px 13px; border-radius: 14px;
   font-size: 13px; border: 1.5px solid var(--border);
   background: var(--bg); color: var(--text2);
   cursor: pointer; white-space: nowrap; font-family: inherit;
-  transition: transform 0.1s;
 }
 .chip:active { transform: scale(0.94); }
+
+/* due date row in panel */
+.due-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 0; font-size: 13px; color: var(--muted);
+}
+.due-picker {
+  border: 1.5px solid var(--border); border-radius: 8px;
+  padding: 5px 10px; font-size: 13px;
+  background: var(--bg); color: var(--text);
+  font-family: inherit; outline: none; cursor: pointer;
+}
+.due-picker:focus { border-color: var(--accent); }
+.due-x { background: none; border: none; color: var(--muted); font-size: 14px; cursor: pointer; }
 
 .input-row { display: flex; gap: 7px; align-items: center; }
 .ti {
@@ -221,14 +243,13 @@ body {
   background: var(--bg); color: var(--text);
   outline: none; font-family: inherit; transition: border-color 0.15s;
 }
-.ti:focus { border-color: #007AFF; }
+.ti:focus { border-color: var(--accent); }
 .ti::placeholder { color: var(--muted); }
 
 .fab {
   width: 44px; height: 44px; border-radius: 50%; border: none;
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer; font-size: 20px; flex-shrink: 0;
-  transition: transform 0.12s;
+  cursor: pointer; font-size: 20px; flex-shrink: 0; transition: transform 0.12s;
 }
 .fab:active { transform: scale(0.88); }
 .mic { background: var(--bg); border: 1.5px solid var(--border); color: var(--muted); }
@@ -237,87 +258,92 @@ body {
 .plus { color: #fff; }
 
 .panel-foot {
-  display: flex; align-items: center; justify-content: space-between;
-  padding-top: 5px;
+  display: flex; align-items: center; justify-content: space-between; padding-top: 5px;
 }
 .foot-btn {
   background: none; border: none; font-family: inherit;
-  font-size: 13px; cursor: pointer; padding: 2px 0;
+  font-size: 13px; cursor: pointer; color: var(--muted);
   display: flex; align-items: center; gap: 4px;
 }
 
-/* ── Setup overlay ── */
-.setup-overlay {
+/* ── Modals ── */
+.overlay {
   display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,0.6); z-index: 200;
-  align-items: center; justify-content: center; padding: 1.5rem;
+  background: rgba(0,0,0,0.55); z-index: 100;
+  align-items: flex-end; justify-content: center;
 }
-.setup-overlay.show { display: flex; }
-.setup-card {
-  background: var(--card); border-radius: 20px;
-  padding: 1.75rem; width: 100%; max-width: 460px;
-  max-height: 90vh; overflow-y: auto;
+.overlay.open { display: flex; }
+
+.sheet {
+  background: var(--card); border-radius: 20px 20px 0 0;
+  padding: 1.5rem 1.25rem;
+  width: 100%; max-width: 960px; max-height: 88vh; overflow-y: auto;
 }
-.setup-card h2 { font-size: 20px; font-weight: 700; margin-bottom: 0.5rem; }
-.setup-card p { font-size: 14px; color: var(--muted); margin-bottom: 1.25rem; line-height: 1.6; }
-.setup-steps { margin-bottom: 1.25rem; }
-.step {
-  display: flex; gap: 10px; margin-bottom: 12px;
-  font-size: 14px; line-height: 1.5;
+.sheet h2 { font-size: 18px; font-weight: 700; margin-bottom: 1rem; }
+
+.m-input {
+  width: 100%; border: 1.5px solid var(--border); border-radius: 10px;
+  padding: 11px 14px; font-size: 15px;
+  background: var(--bg); color: var(--text);
+  font-family: inherit; outline: none; margin-bottom: 12px;
 }
-.step-num {
-  width: 22px; height: 22px; border-radius: 50%;
-  background: #007AFF; color: #fff;
-  font-size: 12px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; margin-top: 1px;
+.m-input:focus { border-color: var(--accent); }
+
+.swatches { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.swatch {
+  width: 30px; height: 30px; border-radius: 50%;
+  cursor: pointer; border: 3px solid transparent; transition: transform 0.1s;
 }
-.setup-code {
-  background: var(--bg); border-radius: 10px;
-  padding: 12px; font-family: monospace; font-size: 12px;
-  color: var(--text2); margin-bottom: 1.25rem; line-height: 1.7;
-  border: 1px solid var(--border);
-}
-.setup-btn {
+.swatch.sel { border-color: var(--text); transform: scale(1.18); }
+
+.m-btn {
   width: 100%; padding: 13px; border-radius: 12px;
   border: none; font-size: 15px; font-weight: 600;
-  cursor: pointer; font-family: inherit;
-  background: #007AFF; color: #fff; margin-bottom: 8px;
+  cursor: pointer; font-family: inherit; margin-bottom: 8px;
 }
-.setup-skip {
-  width: 100%; padding: 11px; border-radius: 12px;
-  border: none; font-size: 14px; cursor: pointer; font-family: inherit;
-  background: var(--bg); color: var(--muted);
+.m-btn.primary   { background: var(--accent); color: #fff; }
+.m-btn.secondary { background: var(--bg); color: var(--text); }
+.m-btn.danger    { background: var(--bg); color: #ff3b30; }
+
+/* Category list in manage modal */
+.cat-list { display: flex; flex-direction: column; gap: 7px; margin-bottom: 1.25rem; }
+.cat-li {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg); border-radius: 10px; padding: 10px 12px;
+}
+.cat-li-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.cat-li-name { flex: 1; font-size: 14px; font-weight: 500; }
+.cat-li-count { font-size: 12px; color: var(--muted); }
+.cat-li-del {
+  background: none; border: none; color: var(--muted);
+  font-size: 15px; cursor: pointer; padding: 4px;
+}
+.cat-li-del:hover { color: #ff3b30; }
+
+/* ── Responsive ── */
+@media (min-width: 600px) {
+  .hdr h1 { font-size: 30px; }
+  .tab { font-size: 14px; padding: 8px 18px; }
+  .task-lbl { font-size: 16px; }
+  .created-lbl { font-size: 12px; }
+  .due { font-size: 12px; }
+}
+@media (min-width: 1024px) {
+  body { padding-bottom: 190px; }
+  .hdr h1 { font-size: 32px; }
+  .tasks { padding: 0 1.25rem; }
 }
 </style>
 </head>
 <body>
 
-<!-- ── Setup overlay (shown when Firebase not configured) ── -->
-<div class="setup-overlay" id="setupOverlay">
-  <div class="setup-card">
-    <h2>🔥 Connect Firebase</h2>
-    <p>One-time setup to sync tasks between your PC and iPad in real time.</p>
-    <div class="setup-steps">
-      <div class="step"><div class="step-num">1</div><div>Go to <strong>console.firebase.google.com</strong> → Create a project → Disable Analytics → Continue</div></div>
-      <div class="step"><div class="step-num">2</div><div>Build → Realtime Database → Create database → Start in <strong>test mode</strong></div></div>
-      <div class="step"><div class="step-num">3</div><div>Project Settings (gear) → Your Apps → &lt;/&gt; Web → Register app → Copy the config</div></div>
-      <div class="step"><div class="step-num">4</div><div>Open <code>tasks.html</code> in a text editor and replace the <code>FIREBASE_CONFIG</code> at the top with your config</div></div>
-    </div>
-    <div class="setup-code">const FIREBASE_CONFIG = &#123;<br>
-&nbsp;&nbsp;apiKey: "AIza...",<br>
-&nbsp;&nbsp;databaseURL: "https://your-project-rtdb.firebaseio.com",<br>
-&nbsp;&nbsp;...<br>
-&#125;;</div>
-    <button class="setup-skip" onclick="dismissSetup()">Use offline for now (no sync)</button>
-  </div>
-</div>
-
-<!-- ── Main UI ── -->
 <div class="hdr">
   <div class="hdr-row">
     <h1>My Tasks</h1>
-    <span class="sync-indicator offline" id="syncBadge">⏺ Offline</span>
+    <div class="hdr-right">
+      <span class="sync-badge offline" id="syncBadge">⏺ Offline</span>
+      <button class="icon-btn" onclick="openMgmt()" title="Manage categories">⚙️</button>
+    </div>
   </div>
   <div class="tabs" id="tabs"></div>
 </div>
@@ -329,307 +355,413 @@ body {
 
 <div class="tasks" id="taskList"></div>
 
+<!-- ── Bottom panel ── -->
 <div class="panel">
   <div class="presets-wrap" id="presetsWrap">
     <div class="presets-scroll" id="presetsScroll"></div>
   </div>
+  <div class="due-row">
+    <span>📅 Due date:</span>
+    <input type="date" class="due-picker" id="duePicker">
+    <button class="due-x" onclick="document.getElementById('duePicker').value=''" title="Clear">✕</button>
+  </div>
   <div class="input-row">
     <input class="ti" id="ti" placeholder="Add a task..." onkeydown="if(event.key==='Enter')addTask()">
-    <button class="fab mic" id="mic" onclick="toggleVoice()" title="Speak a task">🎤</button>
-    <button class="fab plus" id="plusBtn" onclick="addTask()" title="Add">+</button>
+    <button class="fab mic" id="mic" onclick="toggleVoice()" title="Speak">🎤</button>
+    <button class="fab plus" id="plusBtn" onclick="addTask()">+</button>
   </div>
   <div class="panel-foot">
-    <button class="foot-btn" id="presetToggleBtn" onclick="togglePresets()" style="color:var(--muted)">
+    <button class="foot-btn" onclick="togglePresets()">
       <span id="presetArr">▸</span> Quick presets
     </button>
-    <button class="foot-btn" onclick="togglePresets()" style="color:var(--muted); display:none" id="hidePresetBtn">
-    </button>
+    <span style="font-size:12px;color:var(--muted)" id="todayLbl"></span>
+  </div>
+</div>
+
+<!-- ── Manage categories modal ── -->
+<div class="overlay" id="mgmtModal" onclick="if(event.target===this)closeMgmt()">
+  <div class="sheet">
+    <h2>Manage categories</h2>
+    <div class="cat-list" id="catListEl"></div>
+    <hr style="border:none;border-top:1px solid var(--border);margin-bottom:1rem;">
+    <p style="font-size:14px;font-weight:600;margin-bottom:10px;">Add new category</p>
+    <input class="m-input" id="newCatName" placeholder="Name (e.g. Design, Support, DevOps...)">
+    <p style="font-size:12px;color:var(--muted);margin-bottom:8px;">Pick a color</p>
+    <div class="swatches" id="swatchEl"></div>
+    <button class="m-btn primary" onclick="addCategory()">Add category</button>
+    <button class="m-btn secondary" onclick="closeMgmt()">Done</button>
+  </div>
+</div>
+
+<!-- ── Due date edit modal ── -->
+<div class="overlay" id="dueModal" onclick="if(event.target===this)closeDueModal()">
+  <div class="sheet">
+    <h2>Due date</h2>
+    <input type="date" class="m-input" id="dueEditInput">
+    <button class="m-btn primary" onclick="saveDue()">Save</button>
+    <button class="m-btn danger" onclick="removeDue()">Remove due date</button>
+    <button class="m-btn secondary" onclick="closeDueModal()">Cancel</button>
   </div>
 </div>
 
 <script>
-// ─── Categories ─────────────────────────────────────────────────────────────
-const CATS = [
-  { id:'aws',          label:'AWS Server',    color:'#378ADD',
-    presets:['Check server health','Review CloudWatch alerts','Check billing','Update security groups','Verify backups','Review EC2 usage','Check S3 buckets','Update IAM permissions','Review auto-scaling'] },
-  { id:'eps',          label:'ePS CC Server', color:'#7F77DD',
+// ── Default categories ────────────────────────────────────────────────────────
+const DEFAULTS = [
+  { id:'aws',          label:'AWS Server',    color:'#378ADD', order:0,
+    presets:['Check server health','Review CloudWatch alerts','Check billing','Update security groups','Verify backups','Review EC2 usage','Check S3 buckets','Update IAM permissions'] },
+  { id:'eps',          label:'ePS CC Server', color:'#7F77DD', order:1,
     presets:['Check server status','Review error logs','Restart services','Update config','Monitor performance','Check disk space','Clear cache','Review DB connections','Check SSL certs'] },
-  { id:'regression',   label:'Regression',    color:'#1D9E75',
-    presets:['Run regression suite','Review test results','Log failed tests','Update test cases','Sign off release','Compare test runs','Re-run flaky tests','Update test docs','Smoke test deploy'] },
-  { id:'meetings',     label:'Meetings',      color:'#D85A30',
-    presets:['Prepare agenda','Send invite','Take meeting notes','Send follow-up','Update action items','Book meeting room','Share recording','Review decisions'] },
-  { id:'calls',        label:'Calls',         color:'#BA7517',
-    presets:['Prepare talking points','Log call notes','Send follow-up email','Schedule next call','Update contact info','Share call summary','Send proposal'] },
-  { id:'integrations', label:'Integrations',  color:'#D4537E',
-    presets:['Test API endpoint','Check integration logs','Update API keys','Document changes','Verify webhook','Review error rate','Check rate limits','Update OAuth tokens','Test sandbox'] },
+  { id:'regression',   label:'Regression',    color:'#1D9E75', order:2,
+    presets:['Run regression suite','Review test results','Log failed tests','Update test cases','Sign off release','Compare test runs','Re-run flaky tests','Smoke test deploy'] },
+  { id:'meetings',     label:'Meetings',      color:'#D85A30', order:3,
+    presets:['Prepare agenda','Send invite','Take notes','Send follow-up','Update action items','Book room','Share recording'] },
+  { id:'calls',        label:'Calls',         color:'#BA7517', order:4,
+    presets:['Prepare talking points','Log call notes','Send follow-up email','Schedule next call','Update contact info'] },
+  { id:'integrations', label:'Integrations',  color:'#D4537E', order:5,
+    presets:['Test API endpoint','Check integration logs','Update API keys','Document changes','Verify webhook','Review error rate','Check rate limits'] },
 ];
+const COLORS = ['#378ADD','#7F77DD','#1D9E75','#D85A30','#BA7517','#D4537E','#0EA5E9','#8B5CF6','#10B981','#F59E0B','#EF4444','#636366'];
 
-// ─── State ───────────────────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────────────────────
 let activeTab = 'all';
-let tasks = {};           // { catId: [ {id, text, done}, ... ] }
+let cats = [];
+let tasks = {};
 let presetsOpen = false;
 let recog = null;
 let db = null;
-let setupDismissed = false;
+let editingDue = null;
+let selColor = COLORS[0];
 
-CATS.forEach(c => { tasks[c.id] = []; });
-
-// ─── Firebase ────────────────────────────────────────────────────────────────
-const configured = FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY';
-
+// ── Firebase ──────────────────────────────────────────────────────────────────
 function initFirebase() {
-  if (!configured) { showSetup(); return; }
   try {
     firebase.initializeApp(FIREBASE_CONFIG);
     db = firebase.database();
-    db.ref('.info/connected').on('value', snap => {
-      setSyncBadge(snap.val() ? 'online' : 'offline');
-    });
-    db.ref('tasks').on('value', snap => {
+
+    db.ref('.info/connected').on('value', snap => setSyncBadge(snap.val() ? 'online' : 'offline'));
+
+    db.ref('categories').on('value', snap => {
       const val = snap.val();
-      if (val) {
-        CATS.forEach(c => { tasks[c.id] = val[c.id] ? Object.values(val[c.id]) : []; });
+      if (val && Object.keys(val).length) {
+        cats = Object.values(val).sort((a,b) => (a.order||0)-(b.order||0));
       } else {
-        CATS.forEach(c => { tasks[c.id] = []; });
+        cats = DEFAULTS.map((c,i) => ({...c, order:i}));
+        db.ref('categories').set(Object.fromEntries(cats.map(c => [c.id, c])));
       }
+      cats.forEach(c => { if (!tasks[c.id]) tasks[c.id] = []; });
       render();
     });
-    setSyncBadge('online');
+
+    db.ref('tasks').on('value', snap => {
+      const val = snap.val() || {};
+      cats.forEach(c => { tasks[c.id] = val[c.id] ? Object.values(val[c.id]) : []; });
+      Object.keys(val).forEach(k => { if (!tasks[k]) tasks[k] = Object.values(val[k]); });
+      render();
+    });
+
   } catch(e) {
-    console.error('Firebase error', e);
+    console.error(e);
     setSyncBadge('error');
+    cats = DEFAULTS;
     loadLocal();
+    render();
   }
 }
 
-function saveRemote() {
+function saveTasks() {
   if (!db) { saveLocal(); return; }
   const data = {};
-  CATS.forEach(c => {
-    data[c.id] = {};
-    tasks[c.id].forEach(t => { data[c.id][t.id] = t; });
-  });
-  db.ref('tasks').set(data).catch(() => saveLocal());
+  cats.forEach(c => { data[c.id] = {}; (tasks[c.id]||[]).forEach(t => { data[c.id][t.id] = t; }); });
+  db.ref('tasks').set(data).catch(saveLocal);
+}
+
+function saveCats() {
+  if (!db) { saveLocal(); return; }
+  const data = Object.fromEntries(cats.map((c,i) => [c.id, {...c, order:i}]));
+  db.ref('categories').set(data);
 }
 
 function saveLocal() {
-  localStorage.setItem('mytasks_v3', JSON.stringify(tasks));
+  localStorage.setItem('tc_cats', JSON.stringify(cats));
+  localStorage.setItem('tc_tasks', JSON.stringify(tasks));
 }
-
 function loadLocal() {
-  const raw = localStorage.getItem('mytasks_v3');
-  if (raw) { try { const d = JSON.parse(raw); CATS.forEach(c => { tasks[c.id] = d[c.id] || []; }); } catch(e){} }
+  try { cats = JSON.parse(localStorage.getItem('tc_cats')) || DEFAULTS; } catch(e) { cats = DEFAULTS; }
+  try { tasks = JSON.parse(localStorage.getItem('tc_tasks')) || {}; } catch(e) { tasks = {}; }
+  cats.forEach(c => { if (!tasks[c.id]) tasks[c.id] = []; });
 }
 
-function setSyncBadge(state) {
+function setSyncBadge(s) {
   const b = document.getElementById('syncBadge');
-  b.className = 'sync-indicator ' + state;
-  b.textContent = state === 'online' ? '● Live sync' : state === 'offline' ? '⏺ Offline' : '⚠ Sync error';
+  b.className = 'sync-badge ' + s;
+  b.textContent = s==='online' ? '● Live sync' : s==='offline' ? '⏺ Offline' : '⚠ Error';
 }
 
-// ─── Setup overlay ───────────────────────────────────────────────────────────
-function showSetup() {
-  document.getElementById('setupOverlay').classList.add('show');
-  loadLocal();
-}
-function dismissSetup() {
-  setupDismissed = true;
-  document.getElementById('setupOverlay').classList.remove('show');
-  loadLocal();
-  render();
-}
-
-// ─── Render ──────────────────────────────────────────────────────────────────
+// ── Render ────────────────────────────────────────────────────────────────────
 function render() {
-  renderTabs();
-  renderSecTitle();
-  if (activeTab === 'all') renderAll();
-  else renderCat();
-  renderPresets();
-  updatePlusColor();
+  renderTabs(); renderSecTitle();
+  activeTab === 'all' ? renderAll() : renderCat();
+  renderPresets(); updatePlusColor();
+  document.getElementById('todayLbl').textContent =
+    new Date().toLocaleDateString('en',{weekday:'short',month:'short',day:'numeric'});
 }
 
 function renderTabs() {
-  const allCount = CATS.reduce((n, c) => n + tasks[c.id].filter(t => !t.done).length, 0);
-  const allBadge = allCount > 0 ? `<span class="tab-count">${allCount}</span>` : '';
-  let html = `<button class="tab ${activeTab==='all'?'active':''}"
-    style="${activeTab==='all'?'background:#555':'background:var(--card)'}"
-    onclick="switchTab('all')">All${allBadge}</button>`;
-
-  CATS.forEach(c => {
-    const n = tasks[c.id].filter(t => !t.done).length;
-    const badge = n > 0 ? `<span class="tab-count">${n}</span>` : '';
-    html += `<button class="tab ${activeTab===c.id?'active':''}"
-      style="${activeTab===c.id?'background:'+c.color:''}"
-      onclick="switchTab('${c.id}')">${c.label}${badge}</button>`;
-  });
+  const allN = cats.reduce((n,c)=>n+(tasks[c.id]||[]).filter(t=>!t.done).length,0);
+  let html = tabBtn('all','All','#555',allN);
+  cats.forEach(c => { html += tabBtn(c.id, c.label, c.color, (tasks[c.id]||[]).filter(t=>!t.done).length); });
   document.getElementById('tabs').innerHTML = html;
 }
 
+function tabBtn(id, label, color, n) {
+  const active = id === activeTab;
+  const badge = n > 0 ? `<span class="tab-count">${n}</span>` : '';
+  return `<button class="tab ${active?'active':''}"
+    style="${active?'background:'+color+';border-color:'+color:''}"
+    onclick="switchTab('${id}')">${esc(label)}${badge}</button>`;
+}
+
 function renderSecTitle() {
-  let label, count;
+  let label, left;
   if (activeTab === 'all') {
-    const total  = CATS.reduce((n,c) => n + tasks[c.id].length, 0);
-    const done   = CATS.reduce((n,c) => n + tasks[c.id].filter(t=>t.done).length, 0);
-    label = 'All tasks';
-    count = total ? ` · ${total - done} left` : '';
+    const total = cats.reduce((n,c)=>n+(tasks[c.id]||[]).length,0);
+    const done  = cats.reduce((n,c)=>n+(tasks[c.id]||[]).filter(t=>t.done).length,0);
+    label = 'All tasks'; left = total ? ` · ${total-done} open` : '';
   } else {
-    const cat = getCat();
-    const list = tasks[activeTab];
+    const cat = getCat(); if(!cat) return;
+    const list = tasks[activeTab]||[];
     const done = list.filter(t=>t.done).length;
-    label = cat.label;
-    count = list.length ? ` · ${list.length - done} left` : '';
+    label = cat.label; left = list.length ? ` · ${list.length-done} open` : '';
   }
-  document.getElementById('secTitle').textContent = label + count;
+  document.getElementById('secTitle').textContent = label + left;
 }
 
 function renderAll() {
   const el = document.getElementById('taskList');
-  const totalTasks = CATS.reduce((n,c)=>n+tasks[c.id].length,0);
-  if (!totalTasks) {
-    el.innerHTML = `<div class="empty">
-      <div class="empty-icon">🗂️</div>
-      <div class="empty-msg">Nothing here yet.<br>Pick a category tab to add your first task.</div>
-    </div>`;
+  const total = cats.reduce((n,c)=>n+(tasks[c.id]||[]).length,0);
+  if (!total) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🗂️</div><div class="empty-msg">Nothing yet.<br>Pick a category tab and add your first task.</div></div>`;
     return;
   }
-
   let html = '';
-  CATS.forEach(c => {
-    const list = tasks[c.id];
+  cats.forEach(c => {
+    const list = tasks[c.id]||[];
     if (!list.length) return;
-    const pending = list.filter(t=>!t.done).length;
+    const open = list.filter(t=>!t.done).length;
     html += `<div class="cat-group">
       <div class="cat-group-hdr">
         <div class="cat-dot" style="background:${c.color}"></div>
-        <span class="cat-group-label">${c.label}</span>
-        <span class="cat-group-count">${pending} left</span>
+        <span class="cat-group-label">${esc(c.label)}</span>
+        <span class="cat-group-count">${open} open</span>
       </div>
-      <div class="cat-group-tasks">`;
-    list.forEach((t, i) => {
-      html += taskHtml(t, i, c);
-    });
-    html += `</div></div>`;
+      <div class="cat-group-tasks">${list.map((t,i)=>taskHtml(t,i,c)).join('')}</div>
+    </div>`;
   });
   el.innerHTML = html;
 }
 
 function renderCat() {
   const el = document.getElementById('taskList');
-  const cat = getCat();
-  const list = tasks[activeTab];
+  const cat = getCat(); if(!cat) return;
+  const list = tasks[activeTab]||[];
   if (!list.length) {
-    el.innerHTML = `<div class="empty">
-      <div class="empty-icon">📋</div>
-      <div class="empty-msg">No tasks yet —<br>type below or tap Quick presets</div>
-    </div>`;
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📋</div><div class="empty-msg">No tasks yet —<br>type below or tap Quick presets</div></div>`;
     return;
   }
-  el.innerHTML = list.map((t,i) => taskHtml(t, i, cat)).join('');
+  el.innerHTML = list.map((t,i)=>taskHtml(t,i,cat)).join('');
 }
 
 function taskHtml(t, i, cat) {
-  const catId = cat.id;
+  const due = dueBadge(t, i, cat.id);
+  const created = fmtCreated(t.createdAt);
   return `<div class="task ${t.done?'done':''}">
-    <div class="check" style="${t.done?'background:'+cat.color+';border-color:'+cat.color:'border-color:'+cat.color+'99'}"
-      onclick="toggleTask('${catId}',${i})">${t.done?'✓':''}</div>
-    <span class="task-lbl">${esc(t.text)}</span>
-    <button class="del" onclick="delTask('${catId}',${i})">✕</button>
+    <div class="check" onclick="toggle('${cat.id}',${i})"
+      style="${t.done?'background:'+cat.color+';border-color:'+cat.color:'border-color:'+cat.color+'88'}">${t.done?'✓':''}</div>
+    <div class="task-body">
+      <div class="task-lbl">${esc(t.text)}</div>
+      <div class="task-meta">
+        <span class="created-lbl">📝 ${created}</span>
+        ${due}
+      </div>
+    </div>
+    <button class="del" onclick="del('${cat.id}',${i})">✕</button>
   </div>`;
 }
 
+function dueBadge(t, i, catId) {
+  if (!t.dueDate) return `<span class="due due-add" onclick="openDueModal('${catId}',${i})">+ due date</span>`;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const due   = new Date(t.dueDate + 'T00:00:00');
+  const diff  = Math.round((due - today) / 86400000);
+  let cls, lbl;
+  if      (diff < 0)  { cls='due-overdue';  lbl=`⚠ Overdue · ${fmtDate(t.dueDate)}`; }
+  else if (diff === 0){ cls='due-today';    lbl=`Today`; }
+  else if (diff === 1){ cls='due-tomorrow'; lbl=`Tomorrow`; }
+  else if (diff <= 7) { cls='due-soon';     lbl=`${diff}d · ${fmtDate(t.dueDate)}`; }
+  else                { cls='due-future';   lbl=fmtDate(t.dueDate); }
+  return `<span class="due ${cls}" onclick="openDueModal('${catId}',${i})">📅 ${lbl}</span>`;
+}
+
+function fmtDate(s) {
+  return new Date(s+'T00:00:00').toLocaleDateString('en',{month:'short',day:'numeric'});
+}
+function fmtCreated(ts) {
+  if (!ts) return 'today';
+  const d = new Date(ts), now = new Date();
+  const td = new Date(now); td.setHours(0,0,0,0);
+  const yd = new Date(td); yd.setDate(td.getDate()-1);
+  const dd = new Date(ts); dd.setHours(0,0,0,0);
+  if (+dd === +td) return 'today';
+  if (+dd === +yd) return 'yesterday';
+  return d.toLocaleDateString('en',{month:'short',day:'numeric'});
+}
+
 function renderPresets() {
-  const cat = activeTab === 'all' ? null : getCat();
-  const el = document.getElementById('presetsScroll');
-  if (!cat) { el.innerHTML = ''; return; }
-  el.innerHTML = cat.presets.map(p =>
-    `<button class="chip" onclick="addTask(${JSON.stringify(p)})">${esc(p)}</button>`
-  ).join('');
+  const cat = activeTab==='all' ? null : getCat();
+  document.getElementById('presetsScroll').innerHTML = cat
+    ? (cat.presets||[]).map(p=>`<button class="chip" onclick="addTask(${JSON.stringify(p)})">${esc(p)}</button>`).join('')
+    : '';
 }
 
 function updatePlusColor() {
-  const cat = activeTab === 'all' ? null : getCat();
+  const cat = activeTab==='all' ? null : getCat();
   document.getElementById('plusBtn').style.background = cat ? cat.color : '#555';
 }
 
-// ─── Actions ─────────────────────────────────────────────────────────────────
+// ── Actions ───────────────────────────────────────────────────────────────────
 function switchTab(id) {
-  activeTab = id;
-  presetsOpen = false;
+  activeTab = id; presetsOpen = false;
   document.getElementById('presetsWrap').classList.remove('open');
   document.getElementById('presetArr').textContent = '▸';
-  const ti = document.getElementById('ti');
-  ti.placeholder = id === 'all' ? 'Select a category tab to add tasks' : 'Add to ' + getCat().label + '...';
+  document.getElementById('ti').placeholder = id==='all'
+    ? 'Select a category tab to add tasks'
+    : 'Add to ' + getCat().label + '...';
   render();
 }
 
 function addTask(text) {
-  if (activeTab === 'all') {
-    alert('Pick a category tab first, then add a task.');
-    return;
-  }
+  if (activeTab === 'all') { alert('Pick a category tab first.'); return; }
   const ti = document.getElementById('ti');
-  const t = (text !== undefined ? text : ti.value).trim();
-  if (!t) { ti.focus(); return; }
-  tasks[activeTab].unshift({ id: 't' + Date.now(), text: t, done: false });
-  saveRemote();
-  if (text === undefined) ti.value = '';
+  const val = (text !== undefined ? text : ti.value).trim();
+  if (!val) { ti.focus(); return; }
+  const t = { id: 't'+Date.now(), text: val, done: false, createdAt: Date.now() };
+  const due = document.getElementById('duePicker').value;
+  if (due) t.dueDate = due;
+  if (!tasks[activeTab]) tasks[activeTab] = [];
+  tasks[activeTab].unshift(t);
+  saveTasks();
+  if (text === undefined) { ti.value = ''; document.getElementById('duePicker').value = ''; }
   render();
 }
 
-function toggleTask(catId, i) {
-  tasks[catId][i].done = !tasks[catId][i].done;
-  saveRemote();
-  render();
-}
-
-function delTask(catId, i) {
-  tasks[catId].splice(i, 1);
-  saveRemote();
-  render();
-}
+function toggle(catId, i) { tasks[catId][i].done = !tasks[catId][i].done; saveTasks(); render(); }
+function del(catId, i) { tasks[catId].splice(i,1); saveTasks(); render(); }
 
 function clearDone() {
-  if (activeTab === 'all') {
-    CATS.forEach(c => { tasks[c.id] = tasks[c.id].filter(t => !t.done); });
-  } else {
-    tasks[activeTab] = tasks[activeTab].filter(t => !t.done);
-  }
-  saveRemote();
-  render();
+  if (activeTab==='all') cats.forEach(c=>{ tasks[c.id]=(tasks[c.id]||[]).filter(t=>!t.done); });
+  else tasks[activeTab] = (tasks[activeTab]||[]).filter(t=>!t.done);
+  saveTasks(); render();
 }
 
 function togglePresets() {
-  if (activeTab === 'all') return;
+  if (activeTab==='all') return;
   presetsOpen = !presetsOpen;
   document.getElementById('presetsWrap').classList.toggle('open', presetsOpen);
   document.getElementById('presetArr').textContent = presetsOpen ? '▾' : '▸';
 }
 
-// ─── Voice ───────────────────────────────────────────────────────────────────
+// ── Due date modal ────────────────────────────────────────────────────────────
+function openDueModal(catId, i) {
+  editingDue = {catId, i};
+  document.getElementById('dueEditInput').value = tasks[catId][i].dueDate || '';
+  document.getElementById('dueModal').classList.add('open');
+}
+function closeDueModal() { document.getElementById('dueModal').classList.remove('open'); editingDue = null; }
+function saveDue() {
+  if (!editingDue) return;
+  const v = document.getElementById('dueEditInput').value;
+  tasks[editingDue.catId][editingDue.i].dueDate = v || null;
+  saveTasks(); closeDueModal(); render();
+}
+function removeDue() {
+  if (!editingDue) return;
+  tasks[editingDue.catId][editingDue.i].dueDate = null;
+  saveTasks(); closeDueModal(); render();
+}
+
+// ── Category management ───────────────────────────────────────────────────────
+function openMgmt() {
+  renderCatList(); renderSwatches();
+  document.getElementById('newCatName').value = '';
+  selColor = COLORS[0];
+  document.getElementById('mgmtModal').classList.add('open');
+}
+function closeMgmt() { document.getElementById('mgmtModal').classList.remove('open'); }
+
+function renderCatList() {
+  document.getElementById('catListEl').innerHTML = cats.map(c => {
+    const n = (tasks[c.id]||[]).length;
+    return `<div class="cat-li">
+      <div class="cat-li-dot" style="background:${c.color}"></div>
+      <span class="cat-li-name">${esc(c.label)}</span>
+      <span class="cat-li-count">${n} task${n!==1?'s':''}</span>
+      <button class="cat-li-del" onclick="deleteCat('${c.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function renderSwatches() {
+  document.getElementById('swatchEl').innerHTML = COLORS.map(c =>
+    `<div class="swatch ${c===selColor?'sel':''}" style="background:${c}" onclick="pickColor('${c}')"></div>`
+  ).join('');
+}
+function pickColor(c) { selColor = c; renderSwatches(); }
+
+function addCategory() {
+  const name = document.getElementById('newCatName').value.trim();
+  if (!name) { alert('Enter a name.'); return; }
+  const id = 'cat_' + Date.now();
+  cats.push({ id, label: name, color: selColor, presets: [], order: cats.length });
+  tasks[id] = [];
+  saveCats(); saveTasks();
+  document.getElementById('newCatName').value = '';
+  selColor = COLORS[0];
+  renderCatList(); renderSwatches(); render();
+}
+
+function deleteCat(id) {
+  const cat = cats.find(c=>c.id===id);
+  const n = (tasks[id]||[]).length;
+  const msg = n ? `Delete "${cat.label}"? It has ${n} task${n>1?'s':''}. All tasks will be lost.` : `Delete "${cat.label}"?`;
+  if (!confirm(msg)) return;
+  cats = cats.filter(c=>c.id!==id);
+  delete tasks[id];
+  if (activeTab === id) activeTab = 'all';
+  saveCats(); saveTasks();
+  renderCatList(); render();
+}
+
+// ── Voice ─────────────────────────────────────────────────────────────────────
 function toggleVoice() {
-  if (activeTab === 'all') { alert('Pick a category tab first.'); return; }
+  if (activeTab==='all') { alert('Pick a category tab first.'); return; }
   const btn = document.getElementById('mic');
-  if (recog) { recog.stop(); recog = null; btn.classList.remove('on'); return; }
+  if (recog) { recog.stop(); recog=null; btn.classList.remove('on'); return; }
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { alert('Voice works in Chrome and Safari. Open the file there.'); return; }
+  if (!SR) { alert('Voice works in Chrome and Safari.'); return; }
   recog = new SR();
-  recog.lang = 'en-US';
-  recog.interimResults = false;
+  recog.lang = 'en-US'; recog.interimResults = false;
   recog.onresult = e => { addTask(e.results[0][0].transcript); };
-  recog.onend = () => { btn.classList.remove('on'); recog = null; };
-  recog.onerror = () => { btn.classList.remove('on'); recog = null; };
+  recog.onend = () => { btn.classList.remove('on'); recog=null; };
+  recog.onerror = () => { btn.classList.remove('on'); recog=null; };
   recog.start();
   btn.classList.add('on');
 }
 
-// ─── Utils ───────────────────────────────────────────────────────────────────
-function getCat() { return CATS.find(c => c.id === activeTab); }
-function esc(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+// ── Utils ─────────────────────────────────────────────────────────────────────
+function getCat() { return cats.find(c=>c.id===activeTab); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// ─── Boot ────────────────────────────────────────────────────────────────────
+// ── Boot ──────────────────────────────────────────────────────────────────────
 initFirebase();
 switchTab('all');
 </script>
