@@ -115,6 +115,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 .jira-tag.linked{cursor:pointer;}
 .jira-tag.linked:hover{background:#0041A8;}
 
+/* Case tag */
+.case-tag{font-size:11px;font-weight:600;padding:2px 7px;border-radius:6px;
+  background:#6D28D9;color:#fff;text-decoration:none;cursor:default;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+.case-tag.linked{cursor:pointer;}
+.case-tag.linked:hover{background:#5B21B6;}
+
 .created-lbl{font-size:11px;color:var(--muted);}
 
 /* Due tags */
@@ -170,7 +177,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   cursor:pointer;white-space:nowrap;font-family:inherit;}
 .chip:active{transform:scale(.94);}
 
-/* Meta row (priority + jira + date) */
+/* Meta row (priority + jira + case + date) */
 .meta-row{display:flex;align-items:center;gap:7px;padding:6px 0;flex-wrap:wrap;}
 .pri-group{display:flex;gap:4px;}
 .pri-btn{padding:5px 10px;border-radius:10px;border:1.5px solid var(--border);
@@ -192,6 +199,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   font-family:inherit;font-size:13px;width:52px;padding:0 8px 0 0;}
 .jira-num::placeholder{color:var(--muted);}
 .jira-wrap:focus-within{border-color:var(--accent);}
+
+/* Case input in panel */
+.case-wrap{display:flex;align-items:center;border:1.5px solid var(--border);
+  border-radius:10px;background:var(--bg);overflow:hidden;height:32px;}
+.case-pfx{padding:0 6px 0 10px;font-size:12px;font-weight:600;color:#6D28D9;
+  white-space:nowrap;background:var(--bg);}
+.case-num{border:none;outline:none;background:transparent;color:var(--text);
+  font-family:inherit;font-size:13px;width:58px;padding:0 8px 0 0;}
+.case-num::placeholder{color:var(--muted);}
+.case-wrap:focus-within{border-color:var(--accent);}
 
 /* Date button */
 .date-btn{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:10px;
@@ -265,11 +282,31 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 .swatch{width:30px;height:30px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:transform .1s;}
 .swatch.sel{border-color:var(--text);transform:scale(1.18);}
 
-/* Time log modal */
-.sessions-list{display:flex;flex-direction:column;gap:7px;margin-bottom:1rem;max-height:240px;overflow-y:auto;}
-.session-row{display:flex;align-items:center;gap:8px;background:var(--bg);border-radius:10px;padding:9px 12px;}
-.session-date{font-size:12px;color:var(--muted);flex:1;}
-.session-dur{font-size:13px;font-weight:600;}
+/* Time log modal — editable sessions */
+.sessions-list{display:flex;flex-direction:column;gap:7px;margin-bottom:.75rem;max-height:300px;overflow-y:auto;}
+.sess-edit-row{display:flex;align-items:center;gap:6px;background:var(--bg);border-radius:10px;padding:8px 10px;}
+.sess-edit-row input[type=date]{flex:1;min-width:0;}
+.sess-hm{width:46px;text-align:center;}
+.mini-input{border:1.5px solid var(--border);border-radius:8px;padding:7px 9px;
+  font-size:13px;background:var(--card);color:var(--text);font-family:inherit;outline:none;}
+.mini-input:focus{border-color:var(--accent);}
+.sess-del{background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:2px 4px;}
+.sess-del:hover{color:#ff3b30;}
+.log-hint{font-size:12px;color:var(--muted);margin-bottom:.75rem;}
+
+/* Daily report */
+.rep-controls{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.rep-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:1rem;}
+.rep-table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;
+  color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--border);}
+.rep-table td{padding:8px;border-bottom:1px solid var(--border);vertical-align:top;}
+.rep-table td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.rep-ref{font-family:ui-monospace,Menlo,monospace;font-weight:600;}
+.rep-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle;}
+.rep-sec{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--muted);margin:1.2rem 0 .5rem;}
+.rep-grand{font-size:15px;font-weight:700;text-align:right;padding:8px;}
+.rep-empty{text-align:center;color:var(--muted);padding:2rem 0;}
 
 /* Settings label */
 .settings-label{font-size:13px;color:var(--muted);margin-bottom:5px;display:block;}
@@ -300,6 +337,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
         <span class="gt-name" id="gtName"></span>
       </button>
       <span class="sync-badge offline" id="syncBadge">⏺ Offline</span>
+      <button class="icon-btn" onclick="openReport()" title="Daily time report">📊</button>
       <button class="icon-btn" onclick="openMgmt()" title="Settings">⚙️</button>
     </div>
   </div>
@@ -328,6 +366,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
     <div class="jira-wrap">
       <span class="jira-pfx" id="jiraPfxLbl">CTI-</span>
       <input class="jira-num" id="jiraInput" placeholder="123" maxlength="12" type="text">
+    </div>
+    <div class="case-wrap">
+      <span class="case-pfx" id="casePfxLbl">Case-</span>
+      <input class="case-num" id="caseInput" placeholder="123" maxlength="16" type="text">
     </div>
     <div class="meta-sep"></div>
     <button class="date-btn" id="dateBtnEl" onclick="openCalAdd()">
@@ -363,14 +405,30 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   </div>
 </div>
 
-<!-- Time log modal -->
+<!-- Time log modal (editable) -->
 <div class="overlay" id="timeLogModal" onclick="if(event.target===this)closeTimeLog()">
   <div class="sheet">
     <h2>Time log</h2>
-    <div id="timeLogTask" style="font-size:14px;color:var(--muted);margin-bottom:.75rem;"></div>
-    <div id="timeLogTotal" style="font-size:18px;font-weight:700;margin-bottom:1rem;"></div>
+    <div id="timeLogTask" style="font-size:14px;color:var(--muted);margin-bottom:.5rem;"></div>
+    <div id="timeLogTotal" style="font-size:18px;font-weight:700;margin-bottom:.5rem;"></div>
+    <div class="log-hint">Forgot to stop the timer? Adjust the hours &amp; minutes below, or delete / add an entry.</div>
     <div class="sessions-list" id="sessionsList"></div>
+    <button class="m-btn secondary" onclick="addManualSession()">+ Add time entry</button>
+    <button class="m-btn primary" onclick="saveTimeLog()">Save changes</button>
     <button class="m-btn secondary" onclick="closeTimeLog()">Close</button>
+  </div>
+</div>
+
+<!-- Daily report modal -->
+<div class="overlay" id="reportModal" onclick="if(event.target===this)closeReport()">
+  <div class="sheet">
+    <h2>📊 Daily time report</h2>
+    <div class="rep-controls">
+      <input type="date" class="mini-input" id="repDate" onchange="renderReport()" style="padding:9px 10px;">
+      <button class="m-btn secondary" style="width:auto;margin:0;padding:9px 14px;" onclick="copyReport()">📋 Copy for Tempo</button>
+    </div>
+    <div id="repBody"></div>
+    <button class="m-btn secondary" onclick="closeReport()">Close</button>
   </div>
 </div>
 
@@ -384,6 +442,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
     <input class="m-input" id="jiraPrefixSetting" placeholder="CTI-" value="CTI-" oninput="updateJiraPrefix()">
     <label class="settings-label">Jira base URL (optional — makes tickets clickable)</label>
     <input class="m-input" id="jiraUrlSetting" placeholder="https://jira.company.com/browse/" oninput="saveSettings()">
+
+    <h3>Case</h3>
+    <label class="settings-label">Case prefix (e.g. Case-)</label>
+    <input class="m-input" id="casePrefixSetting" placeholder="Case-" value="Case-" oninput="updateCasePrefix()">
+    <label class="settings-label">Case base URL (optional — makes cases clickable)</label>
+    <input class="m-input" id="caseUrlSetting" placeholder="https://support.company.com/case/" oninput="saveSettings()">
 
     <h3>Categories</h3>
     <div class="cat-list" id="catListEl"></div>
@@ -422,7 +486,7 @@ let selPri=null, addDate=null;
 let calMode='add', calYear, calMonth;
 let selColor=COLORS[0];
 let timerInterval=null;
-let settings={ jiraPrefix:'CTI-', jiraBaseUrl:'' };
+let settings={ jiraPrefix:'CTI-', jiraBaseUrl:'', casePrefix:'Case-', caseBaseUrl:'' };
 
 // ── Firebase ──────────────────────────────────────────────────────────────────
 function initFirebase() {
@@ -449,6 +513,7 @@ function initFirebase() {
       const v=snap.val()||{};
       cats.forEach(c=>{tasks[c.id]=v[c.id]?Object.values(v[c.id]):[];});
       Object.keys(v).forEach(k=>{if(!tasks[k])tasks[k]=Object.values(v[k]);});
+      normalizeSessions();
       checkTimer();
       render();
     });
@@ -456,6 +521,13 @@ function initFirebase() {
     console.error(e); setSyncBadge('error');
     cats=DEFAULTS; loadLocal(); applySettings(); checkTimer(); render();
   }
+}
+
+// Firebase may return session arrays as objects — restore them to arrays
+function normalizeSessions(){
+  Object.keys(tasks).forEach(k=>(tasks[k]||[]).forEach(t=>{
+    if(t.sessions) t.sessions=Object.values(t.sessions);
+  }));
 }
 
 function saveTasks(){
@@ -482,6 +554,7 @@ function loadLocal(){
   try{tasks=JSON.parse(localStorage.getItem('tc_tasks'))||{};}catch{tasks={};}
   try{const s=JSON.parse(localStorage.getItem('tc_settings'));if(s)settings={...settings,...s};}catch{}
   cats.forEach(c=>{if(!tasks[c.id])tasks[c.id]=[];});
+  normalizeSessions();
 }
 function setSyncBadge(s){
   const b=document.getElementById('syncBadge');
@@ -494,14 +567,25 @@ function applySettings(){
   if(pfx&&pfx.value!==settings.jiraPrefix)pfx.value=settings.jiraPrefix||'CTI-';
   const url=document.getElementById('jiraUrlSetting');
   if(url&&url.value!==settings.jiraBaseUrl)url.value=settings.jiraBaseUrl||'';
+  document.getElementById('casePfxLbl').textContent=settings.casePrefix||'Case-';
+  const cp=document.getElementById('casePrefixSetting');
+  if(cp&&cp.value!==settings.casePrefix)cp.value=settings.casePrefix||'Case-';
+  const cu=document.getElementById('caseUrlSetting');
+  if(cu&&cu.value!==settings.caseBaseUrl)cu.value=settings.caseBaseUrl||'';
 }
 function updateJiraPrefix(){
   settings.jiraPrefix=document.getElementById('jiraPrefixSetting').value;
   document.getElementById('jiraPfxLbl').textContent=settings.jiraPrefix;
   saveSettingsRemote();
 }
+function updateCasePrefix(){
+  settings.casePrefix=document.getElementById('casePrefixSetting').value;
+  document.getElementById('casePfxLbl').textContent=settings.casePrefix;
+  saveSettingsRemote();
+}
 function saveSettings(){
   settings.jiraBaseUrl=document.getElementById('jiraUrlSetting').value;
+  settings.caseBaseUrl=document.getElementById('caseUrlSetting').value;
   saveSettingsRemote();
 }
 
@@ -570,6 +654,7 @@ function taskHtml(t,i,cat){
   const isRec=!!activeSession;
   const priTag=t.priority?`<span class="pri-tag p${t.priority}">P${t.priority}</span>`:'';
   const jiraTag=t.jiraNumber?buildJiraTag(t.jiraNumber):'';
+  const caseTag=t.caseNumber?buildCaseTag(t.caseNumber):'';
   const due=dueBadge(t,i,cat.id);
   const created=fmtCreated(t.createdAt);
   const totalMs=getTotalMs(t);
@@ -586,7 +671,7 @@ function taskHtml(t,i,cat){
       style="${t.done?'background:'+cat.color+';border-color:'+cat.color:'border-color:'+cat.color+'88'}">${t.done?'✓':''}</div>
     <div class="task-body">
       <div class="task-lbl">${esc(t.text)}</div>
-      <div class="task-meta">${priTag}${jiraTag}<span class="created-lbl">📝 ${created}</span>${due}</div>
+      <div class="task-meta">${priTag}${jiraTag}${caseTag}<span class="created-lbl">📝 ${created}</span>${due}</div>
       ${timerRow}
     </div>
     <div class="task-actions">
@@ -604,6 +689,15 @@ function buildJiraTag(num){
     return `<a class="jira-tag linked" href="${esc(base+ticket)}" target="_blank" rel="noopener">${esc(ticket)}</a>`;
   }
   return `<span class="jira-tag">${esc(ticket)}</span>`;
+}
+function buildCaseTag(num){
+  const pfx=settings.casePrefix||'Case-';
+  const ticket=pfx+num;
+  const base=settings.caseBaseUrl||'';
+  if(base){
+    return `<a class="case-tag linked" href="${esc(base+ticket)}" target="_blank" rel="noopener">${esc(ticket)}</a>`;
+  }
+  return `<span class="case-tag">${esc(ticket)}</span>`;
 }
 
 function dueBadge(t,i,catId){
@@ -646,10 +740,8 @@ function toggleTimer(catId,i){
   const t=tasks[catId][i];
   const active=t.sessions&&t.sessions.some(s=>!s.end);
   if(active){
-    // Stop
     t.sessions=t.sessions.map(s=>s.end?s:{...s,end:Date.now()});
   } else {
-    // Start — stop any other running timer first
     const cur=findActiveSession();
     if(cur){
       tasks[cur.catId][cur.i].sessions=tasks[cur.catId][cur.i].sessions.map(s=>s.end?s:{...s,end:Date.now()});
@@ -676,7 +768,6 @@ function tick(){
   const s=active.task.sessions.find(s=>!s.end);
   if(!s)return;
   const elapsed=Date.now()-s.start;
-  // Update elapsed display (no full re-render)
   const el=document.getElementById('el-'+active.task.id);
   if(el)el.textContent=fmtElapsed(elapsed);
   updateGlobalBadge();
@@ -703,29 +794,149 @@ function goToActiveTask(){
   },120);
 }
 
-// ── Time log modal ────────────────────────────────────────────────────────────
+// ── Time log modal (editable) ─────────────────────────────────────────────────
 let logCatId=null,logIdx=null;
 function openTimeLog(catId,i){
   logCatId=catId;logIdx=i;
   const t=tasks[catId][i];
   document.getElementById('timeLogTask').textContent=t.text;
-  const totalMs=getTotalMs(t);
-  document.getElementById('timeLogTotal').textContent='Total: '+fmtDuration(totalMs);
-  const sessions=t.sessions||[];
-  document.getElementById('sessionsList').innerHTML=sessions.length
-    ?sessions.map((s,si)=>{
-      const dur=s.end?(s.end-s.start):Date.now()-s.start;
-      const startStr=new Date(s.start).toLocaleDateString('en',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-      return `<div class="session-row">
-        <span class="session-date">Session ${si+1} · ${startStr}</span>
-        <span class="session-dur">${fmtDuration(dur)}</span>
-        ${!s.end?'<span style="font-size:11px;color:var(--rec);font-weight:600;">● Live</span>':''}
-      </div>`;
-    }).join('')
-    :'<div style="color:var(--muted);font-size:14px;">No sessions recorded yet.</div>';
+  renderSessionEditor(t.sessions||[]);
   document.getElementById('timeLogModal').classList.add('open');
 }
-function closeTimeLog(){document.getElementById('timeLogModal').classList.remove('open');}
+function closeTimeLog(){
+  document.getElementById('timeLogModal').classList.remove('open');
+  logCatId=null;logIdx=null;
+}
+function sessionRowHtml(s){
+  const dur=(s.end||Date.now())-s.start;
+  const h=Math.floor(dur/3600000), m=Math.floor((dur%3600000)/60000);
+  const live=!s.end?'<span style="font-size:11px;color:var(--rec);font-weight:600;">● live</span>':'';
+  return `<div class="sess-edit-row" data-orig="${s.start}">
+    <input type="date" class="mini-input" data-f="date" value="${dateStr(new Date(s.start))}">
+    <input class="mini-input sess-hm" data-f="h" type="number" min="0" value="${h}">
+    <span style="color:var(--muted);font-size:12px;">h</span>
+    <input class="mini-input sess-hm" data-f="m" type="number" min="0" max="59" value="${m}">
+    <span style="color:var(--muted);font-size:12px;">m</span>
+    ${live}
+    <button class="sess-del" onclick="this.closest('.sess-edit-row').remove();updateLogTotal()">🗑</button>
+  </div>`;
+}
+function renderSessionEditor(sessions){
+  const el=document.getElementById('sessionsList');
+  el.innerHTML=sessions.length
+    ? sessions.map(sessionRowHtml).join('')
+    : '<div style="color:var(--muted);font-size:14px;">No sessions yet — add one below.</div>';
+  el.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',updateLogTotal));
+  updateLogTotal();
+}
+function addManualSession(){
+  const el=document.getElementById('sessionsList');
+  if(!el.querySelector('.sess-edit-row'))el.innerHTML='';
+  const div=document.createElement('div');
+  div.className='sess-edit-row';
+  div.innerHTML=`
+    <input type="date" class="mini-input" data-f="date" value="${dateStr(new Date())}">
+    <input class="mini-input sess-hm" data-f="h" type="number" min="0" value="0">
+    <span style="color:var(--muted);font-size:12px;">h</span>
+    <input class="mini-input sess-hm" data-f="m" type="number" min="0" max="59" value="0">
+    <span style="color:var(--muted);font-size:12px;">m</span>
+    <button class="sess-del" onclick="this.closest('.sess-edit-row').remove();updateLogTotal()">🗑</button>`;
+  el.appendChild(div);
+  div.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',updateLogTotal));
+  updateLogTotal();
+}
+function collectSessions(){
+  return [...document.querySelectorAll('#sessionsList .sess-edit-row')].map(row=>{
+    const date=row.querySelector('[data-f="date"]').value||dateStr(new Date());
+    const h=parseInt(row.querySelector('[data-f="h"]').value)||0;
+    const m=parseInt(row.querySelector('[data-f="m"]').value)||0;
+    const durMs=(h*3600+m*60)*1000;
+    const orig=row.dataset.orig?+row.dataset.orig:null;
+    let start;
+    if(orig){
+      const od=new Date(orig), nd=new Date(date+'T00:00:00');
+      start=new Date(nd.getFullYear(),nd.getMonth(),nd.getDate(),od.getHours(),od.getMinutes(),od.getSeconds()).getTime();
+    } else {
+      start=new Date(date+'T09:00:00').getTime();
+    }
+    return {start,end:start+durMs,durMs};
+  }).filter(s=>s.durMs>0).map(s=>({start:s.start,end:s.end}));
+}
+function updateLogTotal(){
+  const total=collectSessions().reduce((n,s)=>n+(s.end-s.start),0);
+  document.getElementById('timeLogTotal').textContent='Total: '+fmtDuration(total);
+}
+function saveTimeLog(){
+  if(logCatId===null)return;
+  tasks[logCatId][logIdx].sessions=collectSessions();
+  saveTasks(); closeTimeLog(); checkTimer(); render();
+}
+
+// ── Daily report (for Tempo) ──────────────────────────────────────────────────
+function openReport(){
+  document.getElementById('repDate').value=dateStr(new Date());
+  renderReport();
+  document.getElementById('reportModal').classList.add('open');
+}
+function closeReport(){document.getElementById('reportModal').classList.remove('open');}
+
+function reportRows(day){
+  const rows=[];
+  cats.forEach(c=>(tasks[c.id]||[]).forEach(t=>{
+    let ms=0;
+    (t.sessions||[]).forEach(s=>{ if(dateStr(new Date(s.start))===day) ms+=(s.end||Date.now())-s.start; });
+    if(ms>0){
+      const jira=t.jiraNumber?((settings.jiraPrefix||'CTI-')+t.jiraNumber):'';
+      const cas=t.caseNumber?((settings.casePrefix||'Case-')+t.caseNumber):'';
+      rows.push({cat:c.label,color:c.color,jira,cas,text:t.text,ms});
+    }
+  }));
+  return rows;
+}
+function renderReport(){
+  const day=document.getElementById('repDate').value||dateStr(new Date());
+  const rows=reportRows(day);
+  const el=document.getElementById('repBody');
+  if(!rows.length){el.innerHTML='<div class="rep-empty">No time logged on this day.</div>';return;}
+
+  const byRef={};
+  rows.forEach(r=>{ const k=r.jira||r.cas||'(no ticket)'; byRef[k]=(byRef[k]||0)+r.ms; });
+  const total=rows.reduce((n,r)=>n+r.ms,0);
+
+  let html='<div class="rep-sec">By ticket → for Tempo</div>'
+    +'<table class="rep-table"><thead><tr><th>Ticket</th><th style="text-align:right">Hours</th><th style="text-align:right">H:MM</th></tr></thead><tbody>';
+  Object.keys(byRef).sort().forEach(k=>{
+    html+=`<tr><td class="rep-ref">${esc(k)}</td><td class="num">${decHours(byRef[k])}</td><td class="num">${fmtDuration(byRef[k])}</td></tr>`;
+  });
+  html+='</tbody></table>';
+
+  html+='<div class="rep-sec">Task detail</div>'
+    +'<table class="rep-table"><thead><tr><th>Task</th><th style="text-align:right">Hours</th><th style="text-align:right">H:MM</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    const ref=(r.jira||r.cas)?`<span class="rep-ref">${esc(r.jira||r.cas)}</span> `:'';
+    html+=`<tr><td><span class="rep-dot" style="background:${r.color}"></span>${ref}${esc(r.text)}
+      <span style="color:var(--muted);font-size:11px;">· ${esc(r.cat)}</span></td>
+      <td class="num">${decHours(r.ms)}</td><td class="num">${fmtDuration(r.ms)}</td></tr>`;
+  });
+  html+=`</tbody></table><div class="rep-grand">Day total: ${decHours(total)}h · ${fmtDuration(total)}</div>`;
+  el.innerHTML=html;
+}
+function copyReport(){
+  const day=document.getElementById('repDate').value||dateStr(new Date());
+  const rows=reportRows(day);
+  if(!rows.length){alert('Nothing to copy for this day.');return;}
+  const byRef={};
+  rows.forEach(r=>{const k=r.jira||r.cas||'(no ticket)';byRef[k]=(byRef[k]||0)+r.ms;});
+  let out=`Time log — ${day}\n\nBy ticket (for Tempo):\n`;
+  Object.keys(byRef).sort().forEach(k=>{out+=`${k}\t${decHours(byRef[k])}h\t${fmtDuration(byRef[k])}\n`;});
+  out+=`\nTask detail:\n`;
+  rows.forEach(r=>{const ref=(r.jira||r.cas)?(r.jira||r.cas)+' ':'';out+=`${ref}${r.text}\t${decHours(r.ms)}h\t${fmtDuration(r.ms)}\t[${r.cat}]\n`;});
+  const total=rows.reduce((n,r)=>n+r.ms,0);
+  out+=`\nDay total\t${decHours(total)}h\t${fmtDuration(total)}\n`;
+  (navigator.clipboard?navigator.clipboard.writeText(out):Promise.reject())
+    .then(()=>alert('Copied! Paste into Tempo or a spreadsheet.'))
+    .catch(()=>prompt('Copy the report below:',out));
+}
 
 // ── Actions ───────────────────────────────────────────────────────────────────
 function switchTab(id){
@@ -743,14 +954,20 @@ function addTask(text){
   const val=(text!==undefined?text:ti.value).trim();
   if(!val){ti.focus();return;}
   const jn=document.getElementById('jiraInput').value.trim();
+  const cn=document.getElementById('caseInput').value.trim();
   const t={id:'t'+Date.now(),text:val,done:false,createdAt:Date.now()};
   if(addDate)t.dueDate=addDate;
   if(selPri)t.priority=selPri;
   if(jn)t.jiraNumber=jn;
+  if(cn)t.caseNumber=cn;
   if(!tasks[activeTab])tasks[activeTab]=[];
   tasks[activeTab].unshift(t);
   saveTasks();
-  if(text===undefined){ti.value='';document.getElementById('jiraInput').value='';}
+  if(text===undefined){
+    ti.value='';
+    document.getElementById('jiraInput').value='';
+    document.getElementById('caseInput').value='';
+  }
   render();
 }
 
@@ -908,6 +1125,8 @@ function toggleVoice(){
 function getCat(){return cats.find(c=>c.id===activeTab);}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function fmtDate(s){return new Date(s+'T00:00:00').toLocaleDateString('en',{month:'short',day:'numeric'});}
+function dateStr(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function decHours(ms){return (ms/3600000).toFixed(2);}
 function fmtCreated(ts){
   if(!ts)return 'today';
   const td=new Date();td.setHours(0,0,0,0);
