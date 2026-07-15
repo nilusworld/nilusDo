@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>My Tasks</title>
+<title>nilusDO</title>
 <script>
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyArgFh2Dme4TR3-NgWsE3BwLPWrDi9sgxk",
@@ -17,6 +17,7 @@ const FIREBASE_CONFIG = {
 </script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 :root{
@@ -311,6 +312,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 /* Settings label */
 .settings-label{font-size:13px;color:var(--muted);margin-bottom:5px;display:block;}
 
+/* Login overlay */
+.login-overlay{position:fixed;inset:0;background:var(--bg);z-index:300;
+  display:flex;align-items:center;justify-content:center;padding:1.5rem;}
+.login-overlay.hidden{display:none;}
+.login-card{background:var(--card);border-radius:20px;box-shadow:var(--sh);
+  padding:2rem 1.5rem;width:100%;max-width:360px;}
+.login-card h2{font-size:26px;font-weight:700;letter-spacing:-.5px;margin-bottom:.25rem;}
+.login-card p{font-size:14px;color:var(--muted);margin-bottom:1.25rem;}
+.login-err{color:#ff3b30;font-size:13px;min-height:18px;margin:2px 0 8px;}
+
 /* Responsive */
 @media(min-width:600px){
   .hdr h1{font-size:30px;}
@@ -326,10 +337,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 </head>
 <body>
 
+<!-- Login overlay -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-card">
+    <h2>nilusDO</h2>
+    <p>Sign in to continue</p>
+    <input class="m-input" id="loginEmail" type="email" placeholder="Email" autocomplete="username">
+    <input class="m-input" id="loginPass" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <div class="login-err" id="loginErr"></div>
+    <button class="m-btn primary" onclick="doLogin()" style="margin-bottom:0;">Sign in</button>
+  </div>
+</div>
+
 <!-- Header -->
 <div class="hdr">
   <div class="hdr-row">
-    <h1>My Tasks</h1>
+    <h1>nilusDO</h1>
     <div class="hdr-right">
       <button class="global-timer" id="globalTimer" onclick="goToActiveTask()">
         <span>⏺</span>
@@ -456,6 +479,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
     <p style="font-size:12px;color:var(--muted);margin-bottom:8px;">Pick a color</p>
     <div class="swatches" id="swatchEl"></div>
     <button class="m-btn primary" onclick="addCategory()">Add category</button>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:.5rem 0 1rem;">
+    <button class="m-btn danger" onclick="signOut()">Sign out</button>
     <button class="m-btn secondary" onclick="closeMgmt()">Done</button>
   </div>
 </div>
@@ -481,7 +507,7 @@ const MONTHS=['January','February','March','April','May','June','July','August',
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let activeTab='all', cats=[], tasks={};
-let presetsOpen=false, recog=null, db=null;
+let presetsOpen=false, recog=null, db=null, auth=null;
 let selPri=null, addDate=null;
 let calMode='add', calYear, calMonth;
 let selColor=COLORS[0];
@@ -493,34 +519,75 @@ function initFirebase() {
   try {
     firebase.initializeApp(FIREBASE_CONFIG);
     db=firebase.database();
+    auth=firebase.auth();
     db.ref('.info/connected').on('value',s=>setSyncBadge(s.val()?'online':'offline'));
-    db.ref('settings').on('value', snap=>{
-      const v=snap.val();
-      if(v){ settings={...settings,...v}; applySettings(); }
-    });
-    db.ref('categories').on('value',snap=>{
-      const v=snap.val();
-      if(v&&Object.keys(v).length){
-        cats=Object.values(v).sort((a,b)=>(a.order||0)-(b.order||0));
-      } else {
-        cats=DEFAULTS.map((c,i)=>({...c,order:i}));
-        db.ref('categories').set(Object.fromEntries(cats.map(c=>[c.id,c])));
-      }
-      cats.forEach(c=>{if(!tasks[c.id])tasks[c.id]=[];});
-      render();
-    });
-    db.ref('tasks').on('value',snap=>{
-      const v=snap.val()||{};
-      cats.forEach(c=>{tasks[c.id]=v[c.id]?Object.values(v[c.id]):[];});
-      Object.keys(v).forEach(k=>{if(!tasks[k])tasks[k]=Object.values(v[k]);});
-      normalizeSessions();
-      checkTimer();
-      render();
-    });
+    auth.onAuthStateChanged(user=>{ user ? onSignedIn() : onSignedOut(); });
   } catch(e){
     console.error(e); setSyncBadge('error');
+    // Offline / init failure: allow local-only access on this device
+    document.getElementById('loginOverlay').classList.add('hidden');
     cats=DEFAULTS; loadLocal(); applySettings(); checkTimer(); render();
   }
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+let listenersAttached=false;
+function onSignedIn(){
+  document.getElementById('loginOverlay').classList.add('hidden');
+  const err=document.getElementById('loginErr'); if(err)err.textContent='';
+  const pass=document.getElementById('loginPass'); if(pass)pass.value='';
+  if(!listenersAttached){ attachDataListeners(); listenersAttached=true; }
+}
+function onSignedOut(){
+  document.getElementById('loginOverlay').classList.remove('hidden');
+}
+function doLogin(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const pass=document.getElementById('loginPass').value;
+  const err=document.getElementById('loginErr');
+  err.textContent='';
+  if(!email||!pass){ err.textContent='Enter email and password.'; return; }
+  if(!auth){ err.textContent='Auth not ready — check your connection.'; return; }
+  auth.signInWithEmailAndPassword(email,pass)
+    .catch(e=>{ err.textContent = (e&&e.code) ? loginErrMsg(e.code) : 'Sign-in failed.'; });
+}
+function loginErrMsg(code){
+  if(code.includes('wrong-password')||code.includes('invalid-credential'))return 'Wrong email or password.';
+  if(code.includes('user-not-found'))return 'No account with that email.';
+  if(code.includes('too-many-requests'))return 'Too many attempts — try again later.';
+  if(code.includes('invalid-email'))return 'That email looks invalid.';
+  if(code.includes('network'))return 'Network error — check your connection.';
+  return 'Sign-in failed ('+code+').';
+}
+function signOut(){
+  if(auth) auth.signOut().then(()=>location.reload()).catch(()=>location.reload());
+  else location.reload();
+}
+
+function attachDataListeners(){
+  db.ref('settings').on('value', snap=>{
+    const v=snap.val();
+    if(v){ settings={...settings,...v}; applySettings(); }
+  });
+  db.ref('categories').on('value',snap=>{
+    const v=snap.val();
+    if(v&&Object.keys(v).length){
+      cats=Object.values(v).sort((a,b)=>(a.order||0)-(b.order||0));
+    } else {
+      cats=DEFAULTS.map((c,i)=>({...c,order:i}));
+      db.ref('categories').set(Object.fromEntries(cats.map(c=>[c.id,c])));
+    }
+    cats.forEach(c=>{if(!tasks[c.id])tasks[c.id]=[];});
+    render();
+  });
+  db.ref('tasks').on('value',snap=>{
+    const v=snap.val()||{};
+    cats.forEach(c=>{tasks[c.id]=v[c.id]?Object.values(v[c.id]):[];});
+    Object.keys(v).forEach(k=>{if(!tasks[k])tasks[k]=Object.values(v[k]);});
+    normalizeSessions();
+    checkTimer();
+    render();
+  });
 }
 
 // Firebase may return session arrays as objects — restore them to arrays
