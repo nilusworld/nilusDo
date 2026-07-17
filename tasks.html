@@ -34,7 +34,7 @@ const FIREBASE_CONFIG = {
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   background:var(--bg);color:var(--text);min-height:100vh;max-width:960px;margin:0 auto;padding-bottom:210px;}
 
-/* Header  */
+/* Header */
 .hdr{padding:1.1rem 1.25rem 0;position:sticky;top:0;background:var(--bg);z-index:30;}
 .hdr-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:.85rem;}
 .hdr h1{font-size:26px;font-weight:700;letter-spacing:-.5px;}
@@ -191,6 +191,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 .pri-btn.sel-p4{background:var(--p4);color:#fff;border-color:var(--p4);}
 .meta-sep{width:1px;height:22px;background:var(--border);flex-shrink:0;}
 
+/* Scrum quick-actions bar */
+.scrum-bar{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;padding:2px 0 8px;}
+.scrum-bar::-webkit-scrollbar{display:none;}
+.scrum-btn{flex-shrink:0;padding:6px 12px;border-radius:12px;border:1.5px solid var(--border);
+  background:var(--bg);color:var(--text2);font-size:13px;font-weight:600;font-family:inherit;
+  cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px;transition:transform .1s;}
+.scrum-btn:active{transform:scale(.94);}
+.scrum-btn .s-ico{color:var(--rec);font-size:10px;}
+
 /* Jira input in panel */
 .jira-wrap{display:flex;align-items:center;border:1.5px solid var(--border);
   border-radius:10px;background:var(--bg);overflow:hidden;height:32px;}
@@ -279,6 +289,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 .cat-li-count{font-size:12px;color:var(--muted);}
 .cat-li-del{background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:4px;}
 .cat-li-del:hover{color:#ff3b30;}
+.cat-li-move{background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;padding:2px 3px;line-height:1;}
+.cat-li-move:hover{color:var(--accent);}
 .swatches{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
 .swatch{width:30px;height:30px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:transform .1s;}
 .swatch.sel{border-color:var(--text);transform:scale(1.18);}
@@ -419,6 +431,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   <div class="presets-wrap" id="presetsWrap">
     <div class="presets-scroll" id="presetsScroll"></div>
   </div>
+  <div class="scrum-bar" id="scrumBar"></div>
   <div class="meta-row">
     <div class="pri-group">
       <button class="pri-btn" id="priBtn1" onclick="setPri(1)">P1</button>
@@ -513,7 +526,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
     <label class="settings-label">Case base URL (optional — makes cases clickable)</label>
     <input class="m-input" id="caseUrlSetting" placeholder="https://support.company.com/case/" oninput="saveSettings()">
 
+    <h3>Scrum quick-actions</h3>
+    <label class="settings-label">Category for activity tasks</label>
+    <select class="m-input" id="scrumCatSel" onchange="setScrumCategory()"></select>
+    <label class="settings-label">Activities (each becomes a one-tap timer button)</label>
+    <div class="cat-list" id="scrumActList"></div>
+    <div style="display:flex;gap:7px;">
+      <input class="m-input" id="newScrumAct" placeholder="e.g. Sprint Planning" style="margin-bottom:0;" onkeydown="if(event.key==='Enter')addScrumActivity()">
+      <button class="m-btn primary" style="width:auto;margin:0;padding:11px 16px;" onclick="addScrumActivity()">Add</button>
+    </div>
+
     <h3>Categories</h3>
+    <label class="settings-label">Use the arrows to reorder tabs</label>
     <div class="cat-list" id="catListEl"></div>
     <p style="font-size:14px;font-weight:600;margin-bottom:10px;">Add new category</p>
     <input class="m-input" id="newCatName" placeholder="Name (e.g. Design, Support...)">
@@ -545,6 +569,7 @@ const DEFAULTS = [
 ];
 const COLORS=['#378ADD','#7F77DD','#1D9E75','#D85A30','#BA7517','#D4537E','#0EA5E9','#8B5CF6','#10B981','#F59E0B','#EF4444','#636366'];
 const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DEFAULT_SCRUM=['DSM','Code Review','Backlog Refinement','Sprint Planning','Sprint Review','Retrospective'];
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let activeTab='all', cats=[], tasks={};
@@ -553,7 +578,7 @@ let selPri=null, addDate=null;
 let calMode='add', calYear, calMonth;
 let selColor=COLORS[0];
 let timerInterval=null;
-let settings={ jiraPrefix:'CTI-', jiraBaseUrl:'', casePrefix:'Case-', caseBaseUrl:'' };
+let settings={ jiraPrefix:'CTI-', jiraBaseUrl:'', casePrefix:'Case-', caseBaseUrl:'', scrumActivities:null, scrumCategoryId:'' };
 
 // ── Firebase ──────────────────────────────────────────────────────────────────
 function initFirebase() {
@@ -701,7 +726,7 @@ function saveSettings(){
 function render(){
   renderTabs(); renderSecTitle();
   activeTab==='all'?renderAll():renderCat();
-  renderPresets(); updatePlusColor();
+  renderPresets(); updatePlusColor(); renderScrumBar();
   document.getElementById('todayLbl').textContent=
     new Date().toLocaleDateString('en',{weekday:'short',month:'short',day:'numeric'});
 }
@@ -1176,19 +1201,22 @@ function clearAddDate(){addDate=null;updateDateBtn();}
 
 // ── Category management ───────────────────────────────────────────────────────
 function openMgmt(){
-  renderCatList();renderSwatches();
+  renderCatList();renderSwatches();renderScrumSettings();
   document.getElementById('newCatName').value='';selColor=COLORS[0];
   applySettings();
   document.getElementById('mgmtModal').classList.add('open');
 }
 function closeMgmt(){document.getElementById('mgmtModal').classList.remove('open');}
 function renderCatList(){
-  document.getElementById('catListEl').innerHTML=cats.map(c=>{
+  document.getElementById('catListEl').innerHTML=cats.map((c,i)=>{
     const n=(tasks[c.id]||[]).length;
+    const up=i>0?`<button class="cat-li-move" onclick="moveCat('${c.id}',-1)" title="Move up">▲</button>`:`<span class="cat-li-move" style="opacity:.25">▲</span>`;
+    const dn=i<cats.length-1?`<button class="cat-li-move" onclick="moveCat('${c.id}',1)" title="Move down">▼</button>`:`<span class="cat-li-move" style="opacity:.25">▼</span>`;
     return `<div class="cat-li">
       <div class="cat-li-dot" style="background:${c.color}"></div>
       <span class="cat-li-name">${esc(c.label)}</span>
       <span class="cat-li-count">${n} task${n!==1?'s':''}</span>
+      ${up}${dn}
       <button class="cat-li-del" onclick="deleteCat('${c.id}')">✕</button>
     </div>`;
   }).join('');
@@ -1213,6 +1241,72 @@ function deleteCat(id){
   cats=cats.filter(c=>c.id!==id);delete tasks[id];
   if(activeTab===id)activeTab='all';
   saveCats();saveTasks();renderCatList();render();
+}
+
+// ── Scrum quick-actions ───────────────────────────────────────────────────────
+function scrumCat(){
+  if(settings.scrumCategoryId){ const c=cats.find(x=>x.id===settings.scrumCategoryId); if(c)return c; }
+  return cats.find(c=>/scrum/i.test(c.label))||null;
+}
+function renderScrumBar(){
+  const el=document.getElementById('scrumBar');
+  const cat=scrumCat();
+  const acts=settings.scrumActivities||DEFAULT_SCRUM;
+  if(!cat||!acts.length){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='flex';
+  el.innerHTML=acts.map(a=>{
+    const safe=String(a).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `<button class="scrum-btn" onclick="startScrumActivity('${safe}')"><span class="s-ico">▶</span>${esc(a)}</button>`;
+  }).join('');
+}
+function startScrumActivity(name){
+  const cat=scrumCat();
+  if(!cat){ alert('No Scrum category found. Create a category named "Scrum", or pick one in Settings → Scrum quick-actions.'); return; }
+  // stop any running timer first (one active timer at a time)
+  const cur=findActiveSession();
+  if(cur){ tasks[cur.catId][cur.i].sessions=tasks[cur.catId][cur.i].sessions.map(s=>s.end?s:{...s,end:Date.now()}); }
+  const t={id:'t'+Date.now(),text:name,done:false,createdAt:Date.now(),sessions:[{start:Date.now(),end:null}]};
+  if(!tasks[cat.id])tasks[cat.id]=[];
+  tasks[cat.id].unshift(t);
+  activeTab=cat.id;
+  saveTasks(); checkTimer(); render();
+}
+function renderScrumSettings(){
+  const sel=document.getElementById('scrumCatSel');
+  if(sel){
+    sel.innerHTML='<option value="">(auto: category named Scrum)</option>'+
+      cats.map(c=>`<option value="${c.id}" ${settings.scrumCategoryId===c.id?'selected':''}>${esc(c.label)}</option>`).join('');
+  }
+  const list=document.getElementById('scrumActList');
+  const acts=settings.scrumActivities||DEFAULT_SCRUM;
+  if(list){
+    list.innerHTML=acts.length
+      ? acts.map((a,i)=>`<div class="cat-li"><span class="cat-li-name">${esc(a)}</span><button class="cat-li-del" onclick="removeScrumActivity(${i})">✕</button></div>`).join('')
+      : '<div style="color:var(--muted);font-size:13px;padding:4px 2px;">No activities.</div>';
+  }
+}
+function setScrumCategory(){
+  settings.scrumCategoryId=document.getElementById('scrumCatSel').value||'';
+  saveSettingsRemote(); render();
+}
+function addScrumActivity(){
+  const inp=document.getElementById('newScrumAct');
+  const v=inp.value.trim(); if(!v)return;
+  const acts=(settings.scrumActivities||DEFAULT_SCRUM).slice();
+  acts.push(v); settings.scrumActivities=acts;
+  inp.value=''; saveSettingsRemote(); renderScrumSettings(); render();
+}
+function removeScrumActivity(i){
+  const acts=(settings.scrumActivities||DEFAULT_SCRUM).slice();
+  acts.splice(i,1); settings.scrumActivities=acts;
+  saveSettingsRemote(); renderScrumSettings(); render();
+}
+function moveCat(id,dir){
+  const i=cats.findIndex(c=>c.id===id); const j=i+dir;
+  if(i<0||j<0||j>=cats.length)return;
+  const tmp=cats[i]; cats[i]=cats[j]; cats[j]=tmp;
+  cats.forEach((c,k)=>c.order=k);
+  saveCats(); renderCatList(); render();
 }
 
 // ── Voice ─────────────────────────────────────────────────────────────────────
