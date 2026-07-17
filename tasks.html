@@ -297,9 +297,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 
 /* Time log modal — editable sessions */
 .sessions-list{display:flex;flex-direction:column;gap:7px;margin-bottom:.75rem;max-height:300px;overflow-y:auto;}
-.sess-edit-row{display:flex;align-items:center;gap:6px;background:var(--bg);border-radius:10px;padding:8px 10px;}
-.sess-edit-row input[type=date]{flex:1;min-width:0;}
+.sess-edit-row{display:flex;align-items:center;gap:6px;background:var(--bg);border-radius:10px;padding:8px 10px;flex-wrap:wrap;}
+.sess-edit-row input[type=date]{flex:1 1 120px;min-width:108px;}
+.sess-edit-row input[type=time]{width:98px;}
 .sess-hm{width:46px;text-align:center;}
+.sess-arrow{color:var(--muted);font-size:13px;}
+.sess-dur{font-size:12px;font-weight:700;color:var(--text2);min-width:50px;text-align:right;font-variant-numeric:tabular-nums;}
+.sess-live{font-size:11px;color:var(--rec);font-weight:600;}
 .mini-input{border:1.5px solid var(--border);border-radius:8px;padding:7px 9px;
   font-size:13px;background:var(--card);color:var(--text);font-family:inherit;outline:none;}
 .mini-input:focus{border-color:var(--accent);}
@@ -488,7 +492,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
     <h2>Time log</h2>
     <div id="timeLogTask" style="font-size:14px;color:var(--muted);margin-bottom:.5rem;"></div>
     <div id="timeLogTotal" style="font-size:18px;font-weight:700;margin-bottom:.5rem;"></div>
-    <div class="log-hint">Forgot to stop the timer? Adjust the hours &amp; minutes below, or delete / add an entry.</div>
+    <div class="log-hint">Each session shows its start → end time. Edit any time and the duration recalculates automatically — then Save.</div>
     <div class="sessions-list" id="sessionsList"></div>
     <button class="m-btn secondary" onclick="addManualSession()">+ Add time entry</button>
     <button class="m-btn primary" onclick="saveTimeLog()">Save changes</button>
@@ -940,16 +944,16 @@ function closeTimeLog(){
   document.getElementById('timeLogModal').classList.remove('open');
   logCatId=null;logIdx=null;
 }
+function hhmm(ts){const d=new Date(ts);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
 function sessionRowHtml(s){
-  const dur=(s.end||Date.now())-s.start;
-  const h=Math.floor(dur/3600000), m=Math.floor((dur%3600000)/60000);
-  const live=!s.end?'<span style="font-size:11px;color:var(--rec);font-weight:600;">● live</span>':'';
-  return `<div class="sess-edit-row" data-orig="${s.start}">
-    <input type="date" class="mini-input" data-f="date" value="${dateStr(new Date(s.start))}">
-    <input class="mini-input sess-hm" data-f="h" type="number" min="0" value="${h}">
-    <span style="color:var(--muted);font-size:12px;">h</span>
-    <input class="mini-input sess-hm" data-f="m" type="number" min="0" max="59" value="${m}">
-    <span style="color:var(--muted);font-size:12px;">m</span>
+  const start=s.start, end=s.end||Date.now();
+  const live=!s.end?'<span class="sess-live">● live</span>':'';
+  return `<div class="sess-edit-row">
+    <input type="date" class="mini-input" data-f="date" value="${dateStr(new Date(start))}">
+    <input type="time" class="mini-input" data-f="start" value="${hhmm(start)}">
+    <span class="sess-arrow">→</span>
+    <input type="time" class="mini-input" data-f="end" value="${hhmm(end)}">
+    <span class="sess-dur" data-f="dur"></span>
     ${live}
     <button class="sess-del" onclick="this.closest('.sess-edit-row').remove();updateLogTotal()">🗑</button>
   </div>`;
@@ -965,38 +969,47 @@ function renderSessionEditor(sessions){
 function addManualSession(){
   const el=document.getElementById('sessionsList');
   if(!el.querySelector('.sess-edit-row'))el.innerHTML='';
+  const now=new Date();
+  const start=new Date(now.getFullYear(),now.getMonth(),now.getDate(),now.getHours(),now.getMinutes());
+  const end=new Date(start.getTime()+30*60000);
   const div=document.createElement('div');
   div.className='sess-edit-row';
   div.innerHTML=`
-    <input type="date" class="mini-input" data-f="date" value="${dateStr(new Date())}">
-    <input class="mini-input sess-hm" data-f="h" type="number" min="0" value="0">
-    <span style="color:var(--muted);font-size:12px;">h</span>
-    <input class="mini-input sess-hm" data-f="m" type="number" min="0" max="59" value="0">
-    <span style="color:var(--muted);font-size:12px;">m</span>
+    <input type="date" class="mini-input" data-f="date" value="${dateStr(start)}">
+    <input type="time" class="mini-input" data-f="start" value="${hhmm(start.getTime())}">
+    <span class="sess-arrow">→</span>
+    <input type="time" class="mini-input" data-f="end" value="${hhmm(end.getTime())}">
+    <span class="sess-dur" data-f="dur"></span>
     <button class="sess-del" onclick="this.closest('.sess-edit-row').remove();updateLogTotal()">🗑</button>`;
   el.appendChild(div);
   div.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',updateLogTotal));
   updateLogTotal();
 }
+function sessMs(date,st,en){
+  let s=new Date(date+'T'+st+':00').getTime();
+  let e=new Date(date+'T'+en+':00').getTime();
+  if(isNaN(s)||isNaN(e))return null;
+  if(e<=s)e+=86400000;
+  return {start:s,end:e};
+}
 function collectSessions(){
   return [...document.querySelectorAll('#sessionsList .sess-edit-row')].map(row=>{
     const date=row.querySelector('[data-f="date"]').value||dateStr(new Date());
-    const h=parseInt(row.querySelector('[data-f="h"]').value)||0;
-    const m=parseInt(row.querySelector('[data-f="m"]').value)||0;
-    const durMs=(h*3600+m*60)*1000;
-    const orig=row.dataset.orig?+row.dataset.orig:null;
-    let start;
-    if(orig){
-      const od=new Date(orig), nd=new Date(date+'T00:00:00');
-      start=new Date(nd.getFullYear(),nd.getMonth(),nd.getDate(),od.getHours(),od.getMinutes(),od.getSeconds()).getTime();
-    } else {
-      start=new Date(date+'T09:00:00').getTime();
-    }
-    return {start,end:start+durMs,durMs};
-  }).filter(s=>s.durMs>0).map(s=>({start:s.start,end:s.end}));
+    const st=row.querySelector('[data-f="start"]').value||'00:00';
+    const en=row.querySelector('[data-f="end"]').value||'00:00';
+    return sessMs(date,st,en);
+  }).filter(x=>x&&x.end>x.start);
 }
 function updateLogTotal(){
-  const total=collectSessions().reduce((n,s)=>n+(s.end-s.start),0);
+  let total=0;
+  document.querySelectorAll('#sessionsList .sess-edit-row').forEach(row=>{
+    const date=row.querySelector('[data-f="date"]').value;
+    const st=row.querySelector('[data-f="start"]').value;
+    const en=row.querySelector('[data-f="end"]').value;
+    const r=(date&&st&&en)?sessMs(date,st,en):null;
+    const ms=r?(r.end-r.start):0; total+=ms;
+    const d=row.querySelector('[data-f="dur"]'); if(d)d.textContent=fmtDuration(ms);
+  });
   document.getElementById('timeLogTotal').textContent='Total: '+fmtDuration(total);
 }
 function saveTimeLog(){
