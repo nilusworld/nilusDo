@@ -299,7 +299,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 .sessions-list{display:flex;flex-direction:column;gap:7px;margin-bottom:.75rem;max-height:300px;overflow-y:auto;}
 .sess-edit-row{display:flex;align-items:center;gap:6px;background:var(--bg);border-radius:10px;padding:8px 10px;flex-wrap:wrap;}
 .sess-edit-row input[type=date]{flex:1 1 120px;min-width:108px;}
-.sess-edit-row input[type=time]{width:98px;}
+.sess-time{width:118px;text-align:center;}
 .sess-hm{width:46px;text-align:center;}
 .sess-arrow{color:var(--muted);font-size:13px;}
 .sess-dur{font-size:12px;font-weight:700;color:var(--text2);min-width:50px;text-align:right;font-variant-numeric:tabular-nums;}
@@ -518,6 +518,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   <div class="sheet">
     <h2>Settings</h2>
 
+    <h3>Display</h3>
+    <label class="settings-label">Time format</label>
+    <select class="m-input" id="timeFmtSel" onchange="setTimeFormat()">
+      <option value="12h">12-hour (7:00 PM)</option>
+      <option value="24h">24-hour (19:00)</option>
+    </select>
+
     <h3>Jira</h3>
     <label class="settings-label">Ticket prefix (e.g. CTI-, PROJ-)</label>
     <input class="m-input" id="jiraPrefixSetting" placeholder="CTI-" value="CTI-" oninput="updateJiraPrefix()">
@@ -582,7 +589,7 @@ let selPri=null, addDate=null;
 let calMode='add', calYear, calMonth;
 let selColor=COLORS[0];
 let timerInterval=null;
-let settings={ jiraPrefix:'CTI-', jiraBaseUrl:'', casePrefix:'Case-', caseBaseUrl:'', scrumActivities:null, scrumCategoryId:'' };
+let settings={ jiraPrefix:'CTI-', jiraBaseUrl:'', casePrefix:'Case-', caseBaseUrl:'', scrumActivities:null, scrumCategoryId:'', timeFormat:'12h' };
 
 // ── Firebase ──────────────────────────────────────────────────────────────────
 function initFirebase() {
@@ -709,6 +716,7 @@ function applySettings(){
   if(cp&&cp.value!==settings.casePrefix)cp.value=settings.casePrefix||'Case-';
   const cu=document.getElementById('caseUrlSetting');
   if(cu&&cu.value!==settings.caseBaseUrl)cu.value=settings.caseBaseUrl||'';
+  const tf=document.getElementById('timeFmtSel'); if(tf)tf.value=settings.timeFormat||'12h';
 }
 function updateJiraPrefix(){
   settings.jiraPrefix=document.getElementById('jiraPrefixSetting').value;
@@ -724,6 +732,12 @@ function saveSettings(){
   settings.jiraBaseUrl=document.getElementById('jiraUrlSetting').value;
   settings.caseBaseUrl=document.getElementById('caseUrlSetting').value;
   saveSettingsRemote();
+}
+function setTimeFormat(){
+  settings.timeFormat=document.getElementById('timeFmtSel').value;
+  saveSettingsRemote();
+  if(logCatId!==null){ renderSessionEditor(collectSessions()); }
+  render();
 }
 
 // ── Render ────────────────────────────────────────────────────────────────────
@@ -944,15 +958,36 @@ function closeTimeLog(){
   document.getElementById('timeLogModal').classList.remove('open');
   logCatId=null;logIdx=null;
 }
-function hhmm(ts){const d=new Date(ts);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+function minsOfDay(ts){const d=new Date(ts);return d.getHours()*60+d.getMinutes();}
+function fmtClock(mins){
+  mins=((mins%1440)+1440)%1440;
+  const h=Math.floor(mins/60), m=mins%60;
+  if((settings.timeFormat||'12h')==='24h') return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+  const ap=h<12?'AM':'PM'; let hh=h%12; if(hh===0)hh=12;
+  return hh+':'+String(m).padStart(2,'0')+' '+ap;
+}
+function parseClock(str){
+  str=String(str).trim().toLowerCase();
+  if(!str)return null;
+  let ap=null;
+  if(/p\.?m\.?/.test(str))ap='pm'; else if(/a\.?m\.?/.test(str))ap='am';
+  str=str.replace(/[ap]\.?m\.?/g,'').trim();
+  const m=str.match(/^(\d{1,2})(?::?(\d{2}))?$/);
+  if(!m)return null;
+  let h=parseInt(m[1],10), mm=m[2]!=null?parseInt(m[2],10):0;
+  if(mm>59)return null;
+  if(ap){ if(h<1||h>12)return null; if(ap==='pm'&&h!==12)h+=12; if(ap==='am'&&h===12)h=0; }
+  else if(h>23)return null;
+  return h*60+mm;
+}
 function sessionRowHtml(s){
   const start=s.start, end=s.end||Date.now();
   const live=!s.end?'<span class="sess-live">● live</span>':'';
   return `<div class="sess-edit-row">
     <input type="date" class="mini-input" data-f="date" value="${dateStr(new Date(start))}">
-    <input type="time" class="mini-input" data-f="start" value="${hhmm(start)}">
+    <input type="text" class="mini-input sess-time" data-f="start" value="${fmtClock(minsOfDay(start))}" autocomplete="off">
     <span class="sess-arrow">→</span>
-    <input type="time" class="mini-input" data-f="end" value="${hhmm(end)}">
+    <input type="text" class="mini-input sess-time" data-f="end" value="${fmtClock(minsOfDay(end))}" autocomplete="off">
     <span class="sess-dur" data-f="dur"></span>
     ${live}
     <button class="sess-del" onclick="this.closest('.sess-edit-row').remove();updateLogTotal()">🗑</button>
@@ -976,9 +1011,9 @@ function addManualSession(){
   div.className='sess-edit-row';
   div.innerHTML=`
     <input type="date" class="mini-input" data-f="date" value="${dateStr(start)}">
-    <input type="time" class="mini-input" data-f="start" value="${hhmm(start.getTime())}">
+    <input type="text" class="mini-input sess-time" data-f="start" value="${fmtClock(minsOfDay(start.getTime()))}" autocomplete="off">
     <span class="sess-arrow">→</span>
-    <input type="time" class="mini-input" data-f="end" value="${hhmm(end.getTime())}">
+    <input type="text" class="mini-input sess-time" data-f="end" value="${fmtClock(minsOfDay(end.getTime()))}" autocomplete="off">
     <span class="sess-dur" data-f="dur"></span>
     <button class="sess-del" onclick="this.closest('.sess-edit-row').remove();updateLogTotal()">🗑</button>`;
   el.appendChild(div);
@@ -986,17 +1021,19 @@ function addManualSession(){
   updateLogTotal();
 }
 function sessMs(date,st,en){
-  let s=new Date(date+'T'+st+':00').getTime();
-  let e=new Date(date+'T'+en+':00').getTime();
-  if(isNaN(s)||isNaN(e))return null;
+  const sm=parseClock(st), em=parseClock(en);
+  if(sm==null||em==null)return null;
+  const base=new Date(date+'T00:00:00').getTime();
+  if(isNaN(base))return null;
+  let s=base+sm*60000, e=base+em*60000;
   if(e<=s)e+=86400000;
   return {start:s,end:e};
 }
 function collectSessions(){
   return [...document.querySelectorAll('#sessionsList .sess-edit-row')].map(row=>{
     const date=row.querySelector('[data-f="date"]').value||dateStr(new Date());
-    const st=row.querySelector('[data-f="start"]').value||'00:00';
-    const en=row.querySelector('[data-f="end"]').value||'00:00';
+    const st=row.querySelector('[data-f="start"]').value||'';
+    const en=row.querySelector('[data-f="end"]').value||'';
     return sessMs(date,st,en);
   }).filter(x=>x&&x.end>x.start);
 }
