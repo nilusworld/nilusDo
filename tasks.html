@@ -160,6 +160,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 .task:hover .del{opacity:1;}
 @media(hover:none){.del{opacity:.35;}}
 
+/* Subtasks */
+.subtask{margin-left:26px;}
+.subtask .task-lbl{font-size:14px;}
+.sub-add{background:none;border:none;color:var(--muted);font-size:12px;font-weight:700;
+  cursor:pointer;padding:4px 2px;border-radius:6px;opacity:0;line-height:1;}
+.task:hover .sub-add{opacity:1;}
+@media(hover:none){.sub-add{opacity:.35;}}
+.parent-chip{font-size:11px;color:var(--muted);font-weight:600;}
+.rep-seg{font-size:11px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums;}
+
 /* Empty */
 .empty{text-align:center;padding:3.5rem 1rem 1.5rem;color:var(--muted);}
 .empty-icon{font-size:44px;margin-bottom:.6rem;}
@@ -805,7 +815,7 @@ function renderAll(){
       <div class="cat-group-hdr"><div class="cat-dot" style="background:${c.color}"></div>
       <span class="cat-group-label">${esc(c.label)}</span>
       <span class="cat-group-count">${open} open</span></div>
-      <div class="cat-group-tasks">${list.map((t,i)=>taskHtml(t,i,c)).join('')}</div>
+      <div class="cat-group-tasks">${orderedList(c.id).map(x=>taskHtml(x.t,x.i,c)).join('')}</div>
     </div>`;
   });
   el.innerHTML=html;
@@ -815,9 +825,31 @@ function renderCat(){
   const cat=getCat();if(!cat)return;
   const list=tasks[activeTab]||[];
   if(!list.length){el.innerHTML=`<div class="empty"><div class="empty-icon">📋</div><div class="empty-msg">No tasks yet —<br>type below or tap Quick presets</div></div>`;return;}
-  el.innerHTML=list.map((t,i)=>taskHtml(t,i,cat)).join('');
+  el.innerHTML=orderedList(activeTab).map(x=>taskHtml(x.t,x.i,cat)).join('');
 }
 
+function orderedList(catId){
+  const list=tasks[catId]||[];
+  const res=[];
+  list.forEach((t,i)=>{
+    if(t.parentId&&list.some(p=>p.id===t.parentId))return;
+    res.push({t,i});
+    list.forEach((c2,j)=>{ if(c2.parentId===t.id)res.push({t:c2,i:j}); });
+  });
+  return res;
+}
+function addSubtask(catId,parentId){
+  const list=tasks[catId]||[];
+  const parent=list.find(t=>t.id===parentId);
+  if(!parent)return;
+  const name=prompt('New subtask under "'+parent.text+'":');
+  if(!name||!name.trim())return;
+  const t={id:'t'+Date.now(),text:name.trim(),done:false,createdAt:Date.now(),parentId:parentId};
+  if(parent.jiraNumber)t.jiraNumber=parent.jiraNumber;
+  if(parent.caseNumber)t.caseNumber=parent.caseNumber;
+  tasks[catId].push(t);
+  saveTasks();render();
+}
 function focusItems(){
   const today=dateStr(new Date());
   const items=[];
@@ -854,7 +886,7 @@ function renderFocus(){
       html+=`<div class="focus-sec ${cls}"><span class="focus-sec-lbl">${lbl}</span></div>`;
       last=x.g;
     }
-    html+=taskHtml(x.t,x.i,x.cat);
+    html+=taskHtml(x.t,x.i,x.cat,true);
   });
   el.innerHTML=html;
 }
@@ -873,7 +905,10 @@ function updateDoneBadge(){
   else b.style.display='none';
 }
 
-function taskHtml(t,i,cat){
+function taskHtml(t,i,cat,flat){
+  const par=t.parentId?(tasks[cat.id]||[]).find(x=>x.id===t.parentId):null;
+  const parentChip=(flat&&par)?`<span class="parent-chip">${esc(par.text)} ›</span>`:'';
+  const subBtn=(!t.parentId)?`<button class="sub-add" onclick="addSubtask('${cat.id}','${t.id}')" title="Add subtask">↳+</button>`:'';
   const activeSession=t.sessions&&t.sessions.find(s=>!s.end);
   const isRec=!!activeSession;
   const priTag=t.priority?`<span class="pri-tag p${t.priority}">P${t.priority}</span>`:'';
@@ -890,17 +925,18 @@ function taskHtml(t,i,cat){
     ?`<span class="timer-total">⏱ ${fmtDuration(totalMs)} · <span style="cursor:pointer;text-decoration:underline" onclick="openTimeLog('${cat.id}',${i})">${sessCount} session${sessCount!==1?'s':''}</span></span>`:'';
   const timerRow=(elapsedHtml||totalHtml)?`<div class="timer-row">${elapsedHtml}${totalHtml}</div>`:'';
 
-  return `<div class="task ${t.done?'done':''} ${isRec?'rec-active':''}" id="task-${t.id}">
+  return `<div class="task ${t.done?'done':''} ${isRec?'rec-active':''} ${(!flat&&par)?'subtask':''}" id="task-${t.id}">
     <div class="check" onclick="toggle('${cat.id}',${i})"
       style="${t.done?'background:'+cat.color+';border-color:'+cat.color:'border-color:'+cat.color+'88'}">${t.done?'✓':''}</div>
     <div class="task-body">
       <div class="task-lbl">${esc(t.text)}</div>
-      <div class="task-meta">${priTag}${jiraTag}${caseTag}<span class="created-lbl">📝 ${created}</span>${due}</div>
+      <div class="task-meta">${parentChip}${priTag}${jiraTag}${caseTag}<span class="created-lbl">📝 ${created}</span>${due}</div>
       ${timerRow}
     </div>
     <div class="task-actions">
       <button class="t-btn ${isRec?'on':''}" onclick="toggleTimer('${cat.id}',${i})" title="${isRec?'Stop':'Start'} timer">${isRec?'■':'▶'}</button>
       <button class="del" onclick="del('${cat.id}',${i})">✕</button>
+      ${subBtn}
     </div>
   </div>`;
 }
@@ -1139,12 +1175,21 @@ function closeReport(){document.getElementById('reportModal').classList.remove('
 function reportRows(day){
   const rows=[];
   cats.forEach(c=>(tasks[c.id]||[]).forEach(t=>{
-    let ms=0;
-    (t.sessions||[]).forEach(s=>{ if(dateStr(new Date(s.start))===day) ms+=(s.end||Date.now())-s.start; });
+    let ms=0; const segs=[];
+    (t.sessions||[]).forEach(sess=>{
+      if(dateStr(new Date(sess.start))===day){
+        const e=sess.end||Date.now();
+        segs.push({start:sess.start,end:e});
+        ms+=e-sess.start;
+      }
+    });
     if(ms>0){
+      segs.sort((x,y)=>x.start-y.start);
       const jira=t.jiraNumber?((settings.jiraPrefix||'CTI-')+t.jiraNumber):'';
       const cas=t.caseNumber?((settings.casePrefix||'Case-')+t.caseNumber):'';
-      rows.push({cat:c.label,color:c.color,jira,cas,text:t.text,ms});
+      const par=t.parentId?(tasks[c.id]||[]).find(x=>x.id===t.parentId):null;
+      const label=par?(par.text+' › '+t.text):t.text;
+      rows.push({cat:c.label,color:c.color,jira,cas,text:label,ms,segs});
     }
   }));
   return rows;
@@ -1154,24 +1199,22 @@ function renderReport(){
   const rows=reportRows(day);
   const el=document.getElementById('repBody');
   if(!rows.length){el.innerHTML='<div class="rep-empty">No time logged on this day.</div>';return;}
-
   const byRef={};
   rows.forEach(r=>{ const k=r.jira||r.cas||'(no ticket)'; byRef[k]=(byRef[k]||0)+r.ms; });
   const total=rows.reduce((n,r)=>n+r.ms,0);
-
   let html='<div class="rep-sec">By ticket → for Tempo</div>'
     +'<table class="rep-table"><thead><tr><th>Ticket</th><th style="text-align:right">Hours</th><th style="text-align:right">H:MM</th></tr></thead><tbody>';
   Object.keys(byRef).sort().forEach(k=>{
     html+=`<tr><td class="rep-ref">${esc(k)}</td><td class="num">${decHours(byRef[k])}</td><td class="num">${fmtDuration(byRef[k])}</td></tr>`;
   });
   html+='</tbody></table>';
-
   html+='<div class="rep-sec">Task detail</div>'
     +'<table class="rep-table"><thead><tr><th>Task</th><th style="text-align:right">Hours</th><th style="text-align:right">H:MM</th></tr></thead><tbody>';
   rows.forEach(r=>{
     const ref=(r.jira||r.cas)?`<span class="rep-ref">${esc(r.jira||r.cas)}</span> `:'';
+    const segs=r.segs.map(sg=>`<div class="rep-seg">${fmtClock(minsOfDay(sg.start))} → ${fmtClock(minsOfDay(sg.end))} · ${fmtDuration(sg.end-sg.start)}</div>`).join('');
     html+=`<tr><td><span class="rep-dot" style="background:${r.color}"></span>${ref}${esc(r.text)}
-      <span style="color:var(--muted);font-size:11px;">· ${esc(r.cat)}</span></td>
+      <span style="color:var(--muted);font-size:11px;">· ${esc(r.cat)}</span>${segs}</td>
       <td class="num">${decHours(r.ms)}</td><td class="num">${fmtDuration(r.ms)}</td></tr>`;
   });
   html+=`</tbody></table><div class="rep-grand">Day total: ${decHours(total)}h · ${fmtDuration(total)}</div>`;
@@ -1186,7 +1229,11 @@ function copyReport(){
   let out=`Time log — ${day}\n\nBy ticket (for Tempo):\n`;
   Object.keys(byRef).sort().forEach(k=>{out+=`${k}\t${decHours(byRef[k])}h\t${fmtDuration(byRef[k])}\n`;});
   out+=`\nTask detail:\n`;
-  rows.forEach(r=>{const ref=(r.jira||r.cas)?(r.jira||r.cas)+' ':'';out+=`${ref}${r.text}\t${decHours(r.ms)}h\t${fmtDuration(r.ms)}\t[${r.cat}]\n`;});
+  rows.forEach(r=>{
+    const ref=(r.jira||r.cas)?(r.jira||r.cas)+' ':'';
+    out+=`${ref}${r.text}\t${decHours(r.ms)}h\t${fmtDuration(r.ms)}\t[${r.cat}]\n`;
+    r.segs.forEach(sg=>{out+=`    ${fmtClock(minsOfDay(sg.start))} → ${fmtClock(minsOfDay(sg.end))}\t${fmtDuration(sg.end-sg.start)}\n`;});
+  });
   const total=rows.reduce((n,r)=>n+r.ms,0);
   out+=`\nDay total\t${decHours(total)}h\t${fmtDuration(total)}\n`;
   (navigator.clipboard?navigator.clipboard.writeText(out):Promise.reject())
@@ -1233,7 +1280,17 @@ function toggle(catId,i){
   if(t.done)t.doneAt=Date.now(); else delete t.doneAt;
   saveTasks();render();
 }
-function del(catId,i){tasks[catId].splice(i,1);saveTasks();render();}
+function del(catId,i){
+  const t=tasks[catId][i];
+  const kids=t?tasks[catId].filter(x=>x.parentId===t.id):[];
+  if(kids.length){
+    if(!confirm('Delete "'+t.text+'" and its '+kids.length+' subtask'+(kids.length>1?'s':'')+'?'))return;
+    tasks[catId]=tasks[catId].filter((x,j)=>j!==i&&x.parentId!==t.id);
+  } else {
+    tasks[catId].splice(1*i,1);
+  }
+  saveTasks();render();
+}
 function clearDone(){
   if(activeTab==='all'||activeTab==='focus')cats.forEach(c=>{tasks[c.id]=(tasks[c.id]||[]).filter(t=>!t.done);});
   else tasks[activeTab]=(tasks[activeTab]||[]).filter(t=>!t.done);
