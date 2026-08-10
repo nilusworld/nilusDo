@@ -100,7 +100,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   transition:all .15s;font-size:12px;color:#fff;font-weight:700;margin-top:1px;}
 .task.done .check{border-color:transparent;}
 .task-body{flex:1;min-width:0;}
-.task-lbl{font-size:15px;line-height:1.4;word-break:break-word;}
+.task-lbl{font-size:15px;line-height:1.4;word-break:break-word;cursor:text;}
+.rename-input{width:100%;font-size:15px;font-family:inherit;line-height:1.4;
+  color:var(--text);background:var(--card2);border:1.5px solid var(--accent);
+  border-radius:8px;padding:4px 8px;outline:none;}
+.task-lbl-row{display:flex;align-items:flex-start;gap:6px;}
+.task-lbl-row .task-lbl{flex:1;min-width:0;}
+.rename-btn{background:none;border:none;padding:0 2px;font-size:12px;line-height:1.5;
+  cursor:pointer;opacity:.32;flex-shrink:0;transition:opacity .15s;}
+.rename-btn:hover,.rename-btn:active{opacity:.9;}
+.gt-name{cursor:text;}
 .task.done .task-lbl{text-decoration:line-through;color:var(--muted);}
 .task-meta{display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap;}
 .task-actions{display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0;}
@@ -383,6 +392,35 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   .hdr h1{font-size:32px;}
   .tasks{padding:0 1.25rem;}
 }
+
+/* Daily plan (printable) */
+.plan-sec{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--muted);margin:1.1rem 0 .5rem;padding-bottom:3px;border-bottom:1.5px solid var(--border);}
+.plan-day{font-size:12px;font-weight:600;color:var(--text2);margin:.7rem 0 .3rem;}
+.plan-item{display:flex;align-items:flex-start;gap:9px;padding:6px 2px;border-bottom:1px solid var(--border);}
+.plan-item.sub{margin-left:26px;}
+.plan-box{width:15px;height:15px;border:1.5px solid var(--muted);border-radius:4px;flex-shrink:0;margin-top:2px;}
+.plan-txt{flex:1;min-width:0;font-size:14px;line-height:1.35;}
+.plan-tags{font-size:11px;color:var(--muted);margin-left:6px;white-space:normal;}
+.plan-p1{color:var(--p1);font-weight:700;}
+.plan-empty{color:var(--muted);font-size:14px;padding:1.2rem 0;text-align:center;}
+.plan-head{display:none;}
+@media print{
+  @page{margin:14mm;}
+  body:has(#planModal.open){background:#fff!important;max-width:none;padding:0;}
+  body:has(#planModal.open) > *:not(#planModal){display:none!important;}
+  #planModal.open{position:static;display:block!important;background:#fff;z-index:auto;}
+  #planModal.open .sheet{max-width:none;max-height:none;width:100%;overflow:visible;
+    border-radius:0;padding:0;background:#fff;color:#000;box-shadow:none;}
+  #planModal.open .plan-noprint{display:none!important;}
+  #planModal.open .plan-head{display:block;margin-bottom:.7rem;}
+  #planModal.open .plan-head h2{color:#000;}
+  #planModal.open .plan-sec{color:#000;border-bottom:2px solid #000;}
+  #planModal.open .plan-day,#planModal.open .plan-txt{color:#000;}
+  #planModal.open .plan-tags{color:#444;}
+  #planModal.open .plan-box{border-color:#000;}
+  #planModal.open .plan-item{border-bottom:1px solid #bbb;break-inside:avoid;}
+}
 </style>
 </head>
 <body>
@@ -435,10 +473,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
       <button class="global-timer" id="globalTimer" onclick="goToActiveTask()">
         <span>⏺</span>
         <span class="gt-time" id="gtTime">0:00</span>
-        <span class="gt-name" id="gtName"></span>
+        <span class="gt-name" id="gtName" title="Tap to rename" onclick="renameActiveTask(event)"></span>
       </button>
       <span class="done-badge" id="doneBadge" style="display:none"></span>
       <span class="sync-badge offline" id="syncBadge">⏺ Offline</span>
+      <button class="icon-btn" onclick="openPlan()" title="Daily plan (printable)">🗓</button>
       <button class="icon-btn" onclick="openReport()" title="Daily time report">📊</button>
       <button class="icon-btn" onclick="openMgmt()" title="Settings">⚙️</button>
     </div>
@@ -528,10 +567,33 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
     <h2>📊 Daily time report</h2>
     <div class="rep-controls">
       <input type="date" class="mini-input" id="repDate" onchange="renderReport()" style="padding:9px 10px;">
+      <select class="mini-input" id="repRange" onchange="renderReport()" style="padding:9px 10px;">
+        <option value="day">Day</option>
+        <option value="week">Week</option>
+      </select>
+      <select class="mini-input" id="repRound" onchange="renderReport()" style="padding:9px 10px;">
+        <option value="0">Exact</option>
+        <option value="5">Round 5m</option>
+        <option value="15">Round 15m</option>
+      </select>
       <button class="m-btn secondary" style="width:auto;margin:0;padding:9px 14px;" onclick="copyReport()">📋 Copy for Tempo</button>
     </div>
     <div id="repBody"></div>
     <button class="m-btn secondary" onclick="closeReport()">Close</button>
+  </div>
+</div>
+
+<!-- Daily plan modal (printable) -->
+<div class="overlay" id="planModal" onclick="if(event.target===this)closePlan()">
+  <div class="sheet">
+    <div class="plan-head">
+      <h2 style="margin:0 0 2px;">🗓 Daily Plan</h2>
+      <div id="planPrintDate" style="font-size:13px;color:#000;"></div>
+    </div>
+    <h2 class="plan-noprint">🗓 Daily Plan <span id="planDateLbl" style="font-size:13px;font-weight:500;color:var(--muted);"></span></h2>
+    <div id="planBody"></div>
+    <button class="m-btn primary plan-noprint" onclick="printPlan()">🖨 Print</button>
+    <button class="m-btn secondary plan-noprint" onclick="closePlan()">Close</button>
   </div>
 </div>
 
@@ -578,6 +640,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
     <div class="swatches" id="swatchEl"></div>
     <button class="m-btn primary" onclick="addCategory()">Add category</button>
 
+    <h3>Backup</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:8px;">Download everything (tasks, categories, time logs, settings) as a file you keep — or restore from one. Your safety net if anything ever goes wrong with the account.</p>
+    <button class="m-btn secondary" onclick="exportData()">⬇︎ Export backup (.json)</button>
+    <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importData(event)">
+    <button class="m-btn secondary" onclick="document.getElementById('importFile').click()">⬆︎ Import backup…</button>
+
     <hr style="border:none;border-top:1px solid var(--border);margin:.5rem 0 1rem;">
     <button class="m-btn danger" onclick="signOut()">Sign out</button>
     <button class="m-btn secondary" onclick="closeMgmt()">Done</button>
@@ -611,7 +679,8 @@ let selPri=null, addDate=null;
 let calMode='add', calYear, calMonth;
 let selColor=COLORS[0];
 let timerInterval=null;
-let settings={ jiraPrefix:'CTI-', jiraBaseUrl:'', casePrefix:'Case-', caseBaseUrl:'', scrumActivities:null, scrumCategoryId:'', timeFormat:'12h' };
+let settings={ jiraPrefix:'CTI-', jiraBaseUrl:'', casePrefix:'Case-', caseBaseUrl:'', scrumActivities:null, scrumCategoryId:'', timeFormat:'12h', autoRenameCats:[], maxTimerHours:4 };
+let warnedSessions=new Set(), staleChecked=false;
 
 // ── Firebase ──────────────────────────────────────────────────────────────────
 function initFirebase() {
@@ -625,7 +694,7 @@ function initFirebase() {
     console.error(e); setSyncBadge('error');
     // Offline / init failure: allow local-only access on this device
     document.getElementById('loginOverlay').classList.add('hidden');
-    cats=DEFAULTS; loadLocal(); applySettings(); checkTimer(); render();
+    cats=DEFAULTS; loadLocal(); applySettings(); checkTimer(); checkStaleTimer(); render();
   }
 }
 
@@ -685,6 +754,7 @@ function attachDataListeners(){
     Object.keys(v).forEach(k=>{if(!tasks[k])tasks[k]=Object.values(v[k]);});
     normalizeSessions();
     checkTimer();
+    checkStaleTimer();
     render();
   });
 }
@@ -929,7 +999,10 @@ function taskHtml(t,i,cat,flat){
     <div class="check" onclick="toggle('${cat.id}',${i})"
       style="${t.done?'background:'+cat.color+';border-color:'+cat.color:'border-color:'+cat.color+'88'}">${t.done?'✓':''}</div>
     <div class="task-body">
-      <div class="task-lbl">${esc(t.text)}</div>
+      <div class="task-lbl-row">
+        <div class="task-lbl" title="Tap to rename" onclick="startRename('${cat.id}',${i})">${esc(t.text)}</div>
+        <button class="rename-btn" onclick="startRename('${cat.id}',${i})" title="Rename">✏️</button>
+      </div>
       <div class="task-meta">${parentChip}${priTag}${jiraTag}${caseTag}<span class="created-lbl">📝 ${created}</span>${due}</div>
       ${timerRow}
     </div>
@@ -1010,6 +1083,8 @@ function toggleTimer(catId,i){
     t.sessions.push({start:Date.now(),end:null});
   }
   saveTasks(); checkTimer(); render();
+  if(active && (settings.autoRenameCats||[]).includes(catId))
+    renameTaskPrompt(catId,i,'What was this about? Rename the task:');
 }
 
 function checkTimer(){
@@ -1022,6 +1097,19 @@ function checkTimer(){
   updateGlobalBadge();
 }
 
+function checkStaleTimer(){
+  if(staleChecked)return;
+  const a=findActiveSession();
+  if(!a)return;
+  staleChecked=true;
+  const s=a.task.sessions.find(x=>!x.end);
+  if(!s)return;
+  if(dateStr(new Date(s.start))!==dateStr(new Date())){
+    const when=new Date(s.start).toLocaleString();
+    if(confirm(`⏱ A timer for "${a.task.text}" has been running since ${when} (${fmtDuration(Date.now()-s.start)}).\n\nThat looks left over from an earlier session.\n\nOK = stop it now   ·   Cancel = keep running`))
+      toggleTimer(a.catId,a.i);
+  }
+}
 function tick(){
   const active=findActiveSession();
   if(!active){clearInterval(timerInterval);timerInterval=null;updateGlobalBadge();return;}
@@ -1031,6 +1119,12 @@ function tick(){
   const el=document.getElementById('el-'+active.task.id);
   if(el)el.textContent=fmtElapsed(elapsed);
   updateGlobalBadge();
+  const maxMs=(settings.maxTimerHours||4)*3600000;
+  if(elapsed>maxMs && !warnedSessions.has(s.start)){
+    warnedSessions.add(s.start);
+    if(confirm(`⏱ "${active.task.text}" has been timing for ${fmtDuration(elapsed)}.\n\nDid you forget to stop it?\n\nOK = stop it now   ·   Cancel = keep running`))
+      toggleTimer(active.catId,active.i);
+  }
 }
 
 function updateGlobalBadge(){
@@ -1044,6 +1138,20 @@ function updateGlobalBadge(){
   badge.style.display='flex';
 }
 
+function renameTaskPrompt(catId,i,msg){
+  const t=tasks[catId]&&tasks[catId][i];
+  if(!t)return;
+  const name=prompt(msg||'Rename this task:',t.text);
+  if(name===null)return;
+  const v=name.trim();
+  if(v&&v!==t.text){t.text=v;saveTasks();render();updateGlobalBadge();}
+}
+function renameActiveTask(e){
+  if(e)e.stopPropagation();
+  const active=findActiveSession();
+  if(!active)return;
+  renameTaskPrompt(active.catId,active.i);
+}
 function goToActiveTask(){
   const active=findActiveSession();
   if(!active)return;
@@ -1164,6 +1272,70 @@ function saveTimeLog(){
   saveTasks(); closeTimeLog(); checkTimer(); render();
 }
 
+// ── Daily plan (printable) ────────────────────────────────────────────────────
+function openPlan(){ renderDailyPlan(); document.getElementById('planModal').classList.add('open'); }
+function closePlan(){ document.getElementById('planModal').classList.remove('open'); }
+function printPlan(){ window.print(); }
+function planItemHtml(x){
+  const t=x.t;
+  const parts=[];
+  if(t.priority)parts.push(`<span class="${t.priority===1?'plan-p1':''}">P${t.priority}</span>`);
+  if(t.jiraNumber)parts.push(esc((settings.jiraPrefix||'CTI-')+t.jiraNumber));
+  if(t.caseNumber)parts.push(esc((settings.casePrefix||'Case-')+t.caseNumber));
+  if(x.catLabel)parts.push(esc(x.catLabel));
+  if(x.showDue&&t.dueDate)parts.push('📅 '+esc(fmtDate(t.dueDate)));
+  const tags=parts.length?`<span class="plan-tags">${parts.join(' · ')}</span>`:'';
+  return `<div class="plan-item ${x.sub?'sub':''}">
+    <div class="plan-box"></div>
+    <div class="plan-txt">${esc(t.text)}${tags}</div>
+  </div>`;
+}
+function renderDailyPlan(){
+  const today=dateStr(new Date());
+  const todayD=new Date(today+'T00:00:00');
+  const diff=ds=>Math.round((new Date(ds+'T00:00:00')-todayD)/86400000);
+  const overdue=[],dueToday=[],upcoming=[],p1NoDue=[],otherNoDue=[];
+  cats.forEach(c=>(tasks[c.id]||[]).forEach(t=>{
+    if(t.done)return;
+    const sub=!!t.parentId;
+    const e={t,catLabel:c.label,sub};
+    if(t.dueDate){
+      const d=diff(t.dueDate);
+      if(d<0){e.showDue=true;overdue.push(e);}
+      else if(d===0)dueToday.push(e);
+      else if(d<=7){e.showDue=true;upcoming.push(e);}
+    } else if(t.priority===1){ p1NoDue.push(e); }
+    else { otherNoDue.push(e); }
+  }));
+  const byPri=(a,b)=>((a.t.priority||9)-(b.t.priority||9))||a.catLabel.localeCompare(b.catLabel);
+  const byDate=(a,b)=>String(a.t.dueDate).localeCompare(String(b.t.dueDate))||byPri(a,b);
+  overdue.sort(byDate); upcoming.sort(byDate);
+  dueToday.sort(byPri); p1NoDue.sort(byPri); otherNoDue.sort(byPri);
+
+  const dstr=new Date().toLocaleDateString('en',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  document.getElementById('planDateLbl').textContent='· '+dstr;
+  document.getElementById('planPrintDate').textContent=dstr;
+
+  const section=(label,arr)=>arr.length
+    ?`<div class="plan-sec">${label} <span style="font-weight:500;opacity:.7">(${arr.length})</span></div>`+arr.map(planItemHtml).join('')
+    :'';
+  let html='';
+  html+=section('⚠ Overdue',overdue);
+  html+=section('📅 Due today',dueToday);
+  if(upcoming.length){
+    html+=`<div class="plan-sec">🔜 Upcoming — next 7 days <span style="font-weight:500;opacity:.7">(${upcoming.length})</span></div>`;
+    let lastDay=null;
+    upcoming.forEach(x=>{
+      if(x.t.dueDate!==lastDay){ lastDay=x.t.dueDate; html+=`<div class="plan-day">${weekdayLabel(lastDay)}</div>`; }
+      html+=planItemHtml(x);
+    });
+  }
+  html+=section('🔥 Top priority — no due date',p1NoDue);
+  html+=section('📋 Other open — no due date',otherNoDue);
+  if(!html)html='<div class="plan-empty">Nothing to plan — you\'re all caught up. 🎉</div>';
+  document.getElementById('planBody').innerHTML=html;
+}
+
 // ── Daily report (for Tempo) ──────────────────────────────────────────────────
 function openReport(){
   document.getElementById('repDate').value=dateStr(new Date());
@@ -1172,14 +1344,33 @@ function openReport(){
 }
 function closeReport(){document.getElementById('reportModal').classList.remove('open');}
 
-function reportRows(day){
-  const rows=[];
+function repRange(){ const s=document.getElementById('repRange'); return s?s.value:'day'; }
+function roundMs(ms){
+  const s=document.getElementById('repRound');
+  const r=s?parseInt(s.value,10):0;
+  if(!r)return ms;
+  const step=r*60000;
+  return Math.round(ms/step)*step;
+}
+function reportDays(){
+  const day=document.getElementById('repDate').value||dateStr(new Date());
+  if(repRange()!=='week') return {days:[day],label:fmtDate(day),range:'day'};
+  const d=new Date(day+'T00:00:00');
+  const dow=(d.getDay()+6)%7;                 // 0 = Monday
+  const mon=new Date(d); mon.setDate(d.getDate()-dow);
+  const days=[];
+  for(let k=0;k<7;k++){ const x=new Date(mon); x.setDate(mon.getDate()+k); days.push(dateStr(x)); }
+  return {days, label:fmtDate(days[0])+' → '+fmtDate(days[6]), range:'week'};
+}
+function reportRows(days){
+  const set=new Set(days), rows=[];
   cats.forEach(c=>(tasks[c.id]||[]).forEach(t=>{
     let ms=0; const segs=[];
     (t.sessions||[]).forEach(sess=>{
-      if(dateStr(new Date(sess.start))===day){
+      const ds=dateStr(new Date(sess.start));
+      if(set.has(ds)){
         const e=sess.end||Date.now();
-        segs.push({start:sess.start,end:e});
+        segs.push({start:sess.start,end:e,day:ds});
         ms+=e-sess.start;
       }
     });
@@ -1195,51 +1386,73 @@ function reportRows(day){
   return rows;
 }
 function renderReport(){
-  const day=document.getElementById('repDate').value||dateStr(new Date());
-  const rows=reportRows(day);
+  const info=reportDays();
+  const rows=reportRows(info.days);
   const el=document.getElementById('repBody');
-  if(!rows.length){el.innerHTML='<div class="rep-empty">No time logged on this day.</div>';return;}
+  if(!rows.length){el.innerHTML=`<div class="rep-empty">No time logged in this ${info.range}.</div>`;return;}
   const byRef={};
   rows.forEach(r=>{ const k=r.jira||r.cas||'(no ticket)'; byRef[k]=(byRef[k]||0)+r.ms; });
-  const total=rows.reduce((n,r)=>n+r.ms,0);
-  let html='<div class="rep-sec">By ticket → for Tempo</div>'
+  let total=0;
+  let html=`<div class="rep-sec">${info.range==='week'?'Week: '+info.label+' — ':''}By ticket → for Tempo</div>`
     +'<table class="rep-table"><thead><tr><th>Ticket</th><th style="text-align:right">Hours</th><th style="text-align:right">H:MM</th></tr></thead><tbody>';
   Object.keys(byRef).sort().forEach(k=>{
-    html+=`<tr><td class="rep-ref">${esc(k)}</td><td class="num">${decHours(byRef[k])}</td><td class="num">${fmtDuration(byRef[k])}</td></tr>`;
+    const ms=roundMs(byRef[k]); total+=ms;
+    html+=`<tr><td class="rep-ref">${esc(k)}</td><td class="num">${decHours(ms)}</td><td class="num">${fmtDuration(ms)}</td></tr>`;
   });
   html+='</tbody></table>';
+  if(info.range==='week'){
+    const byDay={};
+    rows.forEach(r=>r.segs.forEach(sg=>{byDay[sg.day]=(byDay[sg.day]||0)+(sg.end-sg.start);}));
+    html+='<div class="rep-sec">By day</div>'
+      +'<table class="rep-table"><thead><tr><th>Day</th><th style="text-align:right">Hours</th><th style="text-align:right">H:MM</th></tr></thead><tbody>';
+    info.days.forEach(d=>{ if(byDay[d]>0){ const ms=roundMs(byDay[d]);
+      html+=`<tr><td>${weekdayLabel(d)}</td><td class="num">${decHours(ms)}</td><td class="num">${fmtDuration(ms)}</td></tr>`; } });
+    html+='</tbody></table>';
+  }
   html+='<div class="rep-sec">Task detail</div>'
     +'<table class="rep-table"><thead><tr><th>Task</th><th style="text-align:right">Hours</th><th style="text-align:right">H:MM</th></tr></thead><tbody>';
   rows.forEach(r=>{
+    const ms=roundMs(r.ms);
     const ref=(r.jira||r.cas)?`<span class="rep-ref">${esc(r.jira||r.cas)}</span> `:'';
-    const segs=r.segs.map(sg=>`<div class="rep-seg">${fmtClock(minsOfDay(sg.start))} → ${fmtClock(minsOfDay(sg.end))} · ${fmtDuration(sg.end-sg.start)}</div>`).join('');
+    const segs=(info.range==='day')
+      ?r.segs.map(sg=>`<div class="rep-seg">${fmtClock(minsOfDay(sg.start))} → ${fmtClock(minsOfDay(sg.end))} · ${fmtDuration(sg.end-sg.start)}</div>`).join('')
+      :'';
     html+=`<tr><td><span class="rep-dot" style="background:${r.color}"></span>${ref}${esc(r.text)}
       <span style="color:var(--muted);font-size:11px;">· ${esc(r.cat)}</span>${segs}</td>
-      <td class="num">${decHours(r.ms)}</td><td class="num">${fmtDuration(r.ms)}</td></tr>`;
+      <td class="num">${decHours(ms)}</td><td class="num">${fmtDuration(ms)}</td></tr>`;
   });
-  html+=`</tbody></table><div class="rep-grand">Day total: ${decHours(total)}h · ${fmtDuration(total)}</div>`;
+  html+=`</tbody></table><div class="rep-grand">${info.range==='week'?'Week':'Day'} total: ${decHours(total)}h · ${fmtDuration(total)}</div>`;
   el.innerHTML=html;
 }
 function copyReport(){
-  const day=document.getElementById('repDate').value||dateStr(new Date());
-  const rows=reportRows(day);
-  if(!rows.length){alert('Nothing to copy for this day.');return;}
+  const info=reportDays();
+  const rows=reportRows(info.days);
+  if(!rows.length){alert('Nothing to copy for this '+info.range+'.');return;}
   const byRef={};
   rows.forEach(r=>{const k=r.jira||r.cas||'(no ticket)';byRef[k]=(byRef[k]||0)+r.ms;});
-  let out=`Time log — ${day}\n\nBy ticket (for Tempo):\n`;
-  Object.keys(byRef).sort().forEach(k=>{out+=`${k}\t${decHours(byRef[k])}h\t${fmtDuration(byRef[k])}\n`;});
+  let total=0;
+  let out=`Time log — ${info.label}\n\nBy ticket (for Tempo):\n`;
+  Object.keys(byRef).sort().forEach(k=>{const ms=roundMs(byRef[k]);total+=ms;out+=`${k}\t${decHours(ms)}h\t${fmtDuration(ms)}\n`;});
+  if(info.range==='week'){
+    const byDay={};
+    rows.forEach(r=>r.segs.forEach(sg=>{byDay[sg.day]=(byDay[sg.day]||0)+(sg.end-sg.start);}));
+    out+=`\nBy day:\n`;
+    info.days.forEach(d=>{ if(byDay[d]>0){const ms=roundMs(byDay[d]);out+=`${d}\t${decHours(ms)}h\t${fmtDuration(ms)}\n`;} });
+  }
   out+=`\nTask detail:\n`;
   rows.forEach(r=>{
+    const ms=roundMs(r.ms);
     const ref=(r.jira||r.cas)?(r.jira||r.cas)+' ':'';
-    out+=`${ref}${r.text}\t${decHours(r.ms)}h\t${fmtDuration(r.ms)}\t[${r.cat}]\n`;
-    r.segs.forEach(sg=>{out+=`    ${fmtClock(minsOfDay(sg.start))} → ${fmtClock(minsOfDay(sg.end))}\t${fmtDuration(sg.end-sg.start)}\n`;});
+    out+=`${ref}${r.text}\t${decHours(ms)}h\t${fmtDuration(ms)}\t[${r.cat}]\n`;
+    if(info.range==='day')
+      r.segs.forEach(sg=>{out+=`    ${fmtClock(minsOfDay(sg.start))} → ${fmtClock(minsOfDay(sg.end))}\t${fmtDuration(sg.end-sg.start)}\n`;});
   });
-  const total=rows.reduce((n,r)=>n+r.ms,0);
-  out+=`\nDay total\t${decHours(total)}h\t${fmtDuration(total)}\n`;
+  out+=`\n${info.range==='week'?'Week':'Day'} total\t${decHours(total)}h\t${fmtDuration(total)}\n`;
   (navigator.clipboard?navigator.clipboard.writeText(out):Promise.reject())
     .then(()=>alert('Copied! Paste into Tempo or a spreadsheet.'))
     .catch(()=>prompt('Copy the report below:',out));
 }
+function weekdayLabel(ds){ return new Date(ds+'T00:00:00').toLocaleDateString('en',{weekday:'short',month:'short',day:'numeric'}); }
 
 // ── Actions ───────────────────────────────────────────────────────────────────
 function switchTab(id){
@@ -1274,6 +1487,28 @@ function addTask(text){
   render();
 }
 
+function startRename(catId,i){
+  const t=tasks[catId]&&tasks[catId][i];
+  if(!t)return;
+  const lbl=document.querySelector('#task-'+t.id+' .task-lbl');
+  if(!lbl||lbl.querySelector('input'))return;
+  const input=document.createElement('input');
+  input.type='text';input.className='rename-input';input.value=t.text;
+  lbl.textContent='';lbl.appendChild(input);
+  input.focus();input.select();
+  let closed=false;
+  const finish=(save)=>{
+    if(closed)return;closed=true;
+    const v=input.value.trim();
+    if(save&&v&&v!==t.text){t.text=v;saveTasks();}
+    render();updateGlobalBadge();
+  };
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();finish(true);}
+    else if(e.key==='Escape'){e.preventDefault();finish(false);}
+  });
+  input.addEventListener('blur',()=>finish(true));
+}
 function toggle(catId,i){
   const t=tasks[catId][i];
   t.done=!t.done;
@@ -1384,6 +1619,43 @@ function updateDateBtn(){
 }
 function clearAddDate(){addDate=null;updateDateBtn();}
 
+// ── Backup: export / import ───────────────────────────────────────────────────
+function exportData(){
+  const data={ app:'nilusDO', version:1, exportedAt:new Date().toISOString(), cats, tasks, settings };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='nilusDO-backup-'+dateStr(new Date())+'.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function importData(e){
+  const file=e.target.files&&e.target.files[0];
+  e.target.value='';
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    let data;
+    try{ data=JSON.parse(reader.result); }
+    catch(err){ alert('Could not read that file: '+err.message); return; }
+    if(!data||!Array.isArray(data.cats)||typeof data.tasks!=='object'){
+      alert("That doesn't look like a nilusDO backup file."); return;
+    }
+    const when=data.exportedAt?new Date(data.exportedAt).toLocaleString():'unknown date';
+    if(!confirm('Restore backup from '+when+'?\n\nThis REPLACES all current tasks, categories and settings on this account. Consider exporting a backup of the current state first.')) return;
+    cats=data.cats;
+    tasks=data.tasks||{};
+    if(data.settings) settings={...settings,...data.settings};
+    cats.forEach(c=>{if(!tasks[c.id])tasks[c.id]=[];});
+    normalizeSessions();
+    saveCats(); saveTasks(); saveSettingsRemote(); saveLocal();
+    applySettings(); checkTimer(); render();
+    alert('Backup restored.');
+    closeMgmt();
+  };
+  reader.readAsText(file);
+}
+
 // ── Category management ───────────────────────────────────────────────────────
 function openMgmt(){
   renderCatList();renderSwatches();renderScrumSettings();
@@ -1397,11 +1669,13 @@ function renderCatList(){
     const n=(tasks[c.id]||[]).length;
     const up=i>0?`<button class="cat-li-move" onclick="moveCat('${c.id}',-1)" title="Move up">▲</button>`:`<span class="cat-li-move" style="opacity:.25">▲</span>`;
     const dn=i<cats.length-1?`<button class="cat-li-move" onclick="moveCat('${c.id}',1)" title="Move down">▼</button>`:`<span class="cat-li-move" style="opacity:.25">▼</span>`;
+    const ar=(settings.autoRenameCats||[]).includes(c.id);
+    const arBtn=`<button class="cat-li-move" onclick="toggleAutoRename('${c.id}')" title="${ar?'On: ask to rename when a timer in this category stops':'Off: tap to ask for a name when a timer stops (great for meetings)'}" style="width:auto;padding:0 6px;font-size:13px;opacity:${ar?1:.3}">✏️</button>`;
     return `<div class="cat-li">
       <div class="cat-li-dot" style="background:${c.color}"></div>
       <span class="cat-li-name">${esc(c.label)}</span>
       <span class="cat-li-count">${n} task${n!==1?'s':''}</span>
-      ${up}${dn}
+      ${arBtn}${up}${dn}
       <button class="cat-li-del" onclick="deleteCat('${c.id}')">✕</button>
     </div>`;
   }).join('');
@@ -1419,6 +1693,12 @@ function addCategory(){
   cats.push({id,label:name,color:selColor,presets:[],order:cats.length});
   tasks[id]=[];saveCats();saveTasks();
   document.getElementById('newCatName').value='';renderCatList();renderSwatches();render();
+}
+function toggleAutoRename(id){
+  const list=settings.autoRenameCats||(settings.autoRenameCats=[]);
+  const i=list.indexOf(id);
+  if(i>=0)list.splice(i,1); else list.push(id);
+  saveSettingsRemote();renderCatList();
 }
 function deleteCat(id){
   const cat=cats.find(c=>c.id===id),n=(tasks[id]||[]).length;
@@ -1538,6 +1818,9 @@ function getTotalMs(t){
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
+window.addEventListener('beforeunload',e=>{
+  if(findActiveSession()){ e.preventDefault(); e.returnValue=''; }
+});
 initFirebase();
 switchTab('focus');
 </script>
