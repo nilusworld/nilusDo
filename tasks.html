@@ -323,6 +323,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 .sess-arrow{color:var(--muted);font-size:13px;}
 .sess-dur{font-size:12px;font-weight:700;color:var(--text2);min-width:50px;text-align:right;font-variant-numeric:tabular-nums;}
 .sess-live{font-size:11px;color:var(--rec);font-weight:600;}
+.sess-note{flex:1 1 100%;font-size:13px;margin-top:2px;}
+.rep-note{color:var(--text2);font-style:italic;}
+.task-note{font-size:12px;color:var(--muted);margin-top:5px;cursor:pointer;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:italic;}
 .mini-input{border:1.5px solid var(--border);border-radius:8px;padding:7px 9px;
   font-size:13px;background:var(--card);color:var(--text);font-family:inherit;outline:none;}
 .mini-input:focus{border-color:var(--accent);}
@@ -994,6 +998,8 @@ function taskHtml(t,i,cat,flat){
   const totalHtml=totalMs>0
     ?`<span class="timer-total">⏱ ${fmtDuration(totalMs)} · <span style="cursor:pointer;text-decoration:underline" onclick="openTimeLog('${cat.id}',${i})">${sessCount} session${sessCount!==1?'s':''}</span></span>`:'';
   const timerRow=(elapsedHtml||totalHtml)?`<div class="timer-row">${elapsedHtml}${totalHtml}</div>`:'';
+  const lastNote=(t.sessions||[]).slice().reverse().find(s=>s.note&&String(s.note).trim());
+  const noteHtml=lastNote?`<div class="task-note" onclick="openTimeLog('${cat.id}',${i})" title="What you did — tap to edit">🗒 ${esc(lastNote.note)}</div>`:'';
 
   return `<div class="task ${t.done?'done':''} ${isRec?'rec-active':''} ${(!flat&&par)?'subtask':''}" id="task-${t.id}">
     <div class="check" onclick="toggle('${cat.id}',${i})"
@@ -1005,6 +1011,7 @@ function taskHtml(t,i,cat,flat){
       </div>
       <div class="task-meta">${parentChip}${priTag}${jiraTag}${caseTag}<span class="created-lbl">📝 ${created}</span>${due}</div>
       ${timerRow}
+      ${noteHtml}
     </div>
     <div class="task-actions">
       <button class="t-btn ${isRec?'on':''}" onclick="toggleTimer('${cat.id}',${i})" title="${isRec?'Stop':'Start'} timer">${isRec?'■':'▶'}</button>
@@ -1208,6 +1215,7 @@ function sessionRowHtml(s){
     <span class="sess-dur" data-f="dur"></span>
     ${live}
     <button class="sess-del" onclick="this.closest('.sess-edit-row').remove();updateLogTotal()">🗑</button>
+    <input type="text" class="mini-input sess-note" data-f="note" placeholder="What did you do? (optional)" value="${esc(s.note||'')}" autocomplete="off">
   </div>`;
 }
 function renderSessionEditor(sessions){
@@ -1232,7 +1240,8 @@ function addManualSession(){
     <span class="sess-arrow">→</span>
     <input type="text" class="mini-input sess-time" data-f="end" value="${fmtClock(minsOfDay(end.getTime()))}" autocomplete="off">
     <span class="sess-dur" data-f="dur"></span>
-    <button class="sess-del" onclick="this.closest('.sess-edit-row').remove();updateLogTotal()">🗑</button>`;
+    <button class="sess-del" onclick="this.closest('.sess-edit-row').remove();updateLogTotal()">🗑</button>
+    <input type="text" class="mini-input sess-note" data-f="note" placeholder="What did you do? (optional)" autocomplete="off">`;
   el.appendChild(div);
   div.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',updateLogTotal));
   updateLogTotal();
@@ -1251,7 +1260,11 @@ function collectSessions(){
     const date=row.querySelector('[data-f="date"]').value||dateStr(new Date());
     const st=row.querySelector('[data-f="start"]').value||'';
     const en=row.querySelector('[data-f="end"]').value||'';
-    return sessMs(date,st,en);
+    const noteEl=row.querySelector('[data-f="note"]');
+    const note=noteEl?noteEl.value.trim():'';
+    const r=sessMs(date,st,en);
+    if(r&&note)r.note=note;
+    return r;
   }).filter(x=>x&&x.end>x.start);
 }
 function updateLogTotal(){
@@ -1370,7 +1383,7 @@ function reportRows(days){
       const ds=dateStr(new Date(sess.start));
       if(set.has(ds)){
         const e=sess.end||Date.now();
-        segs.push({start:sess.start,end:e,day:ds});
+        segs.push({start:sess.start,end:e,day:ds,note:sess.note||''});
         ms+=e-sess.start;
       }
     });
@@ -1415,10 +1428,12 @@ function renderReport(){
     const ms=roundMs(r.ms);
     const ref=(r.jira||r.cas)?`<span class="rep-ref">${esc(r.jira||r.cas)}</span> `:'';
     const segs=(info.range==='day')
-      ?r.segs.map(sg=>`<div class="rep-seg">${fmtClock(minsOfDay(sg.start))} → ${fmtClock(minsOfDay(sg.end))} · ${fmtDuration(sg.end-sg.start)}</div>`).join('')
+      ?r.segs.map(sg=>`<div class="rep-seg">${fmtClock(minsOfDay(sg.start))} → ${fmtClock(minsOfDay(sg.end))} · ${fmtDuration(sg.end-sg.start)}${sg.note?` — <span class="rep-note">${esc(sg.note)}</span>`:''}</div>`).join('')
       :'';
+    const notes=[...new Set(r.segs.map(s=>s.note).filter(Boolean))];
+    const notesHtml=(info.range==='week'&&notes.length)?`<div class="rep-seg">📝 <span class="rep-note">${notes.map(esc).join(' · ')}</span></div>`:'';
     html+=`<tr><td><span class="rep-dot" style="background:${r.color}"></span>${ref}${esc(r.text)}
-      <span style="color:var(--muted);font-size:11px;">· ${esc(r.cat)}</span>${segs}</td>
+      <span style="color:var(--muted);font-size:11px;">· ${esc(r.cat)}</span>${segs}${notesHtml}</td>
       <td class="num">${decHours(ms)}</td><td class="num">${fmtDuration(ms)}</td></tr>`;
   });
   html+=`</tbody></table><div class="rep-grand">${info.range==='week'?'Week':'Day'} total: ${decHours(total)}h · ${fmtDuration(total)}</div>`;
@@ -1445,7 +1460,11 @@ function copyReport(){
     const ref=(r.jira||r.cas)?(r.jira||r.cas)+' ':'';
     out+=`${ref}${r.text}\t${decHours(ms)}h\t${fmtDuration(ms)}\t[${r.cat}]\n`;
     if(info.range==='day')
-      r.segs.forEach(sg=>{out+=`    ${fmtClock(minsOfDay(sg.start))} → ${fmtClock(minsOfDay(sg.end))}\t${fmtDuration(sg.end-sg.start)}\n`;});
+      r.segs.forEach(sg=>{out+=`    ${fmtClock(minsOfDay(sg.start))} → ${fmtClock(minsOfDay(sg.end))}\t${fmtDuration(sg.end-sg.start)}${sg.note?'\t'+sg.note:''}\n`;});
+    else {
+      const notes=[...new Set(r.segs.map(s=>s.note).filter(Boolean))];
+      if(notes.length)out+=`    📝 ${notes.join(' · ')}\n`;
+    }
   });
   out+=`\n${info.range==='week'?'Week':'Day'} total\t${decHours(total)}h\t${fmtDuration(total)}\n`;
   (navigator.clipboard?navigator.clipboard.writeText(out):Promise.reject())
