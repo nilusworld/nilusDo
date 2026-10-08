@@ -1,21 +1,23 @@
 {
   "hosting": {
     "site": "nilusdo",
-    "public": ".",
-    "ignore": [
-      "firebase.json",
-      ".firebaserc",
-      "**/.*",
-      "**/node_modules/**",
-      "nilusDO/**"
-    ],
+    "public": "public",
+    "ignore": ["**/.*"],
+    "cleanUrls": true,
     "rewrites": [
-      { "source": "**", "destination": "/tasks.html" }
+      { "source": "**", "destination": "/index.html" }
     ],
     "headers": [
       {
-        "source": "**/*.html",
+        "source": "**/*.@(html|js|css|webmanifest)",
         "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      },
+      {
+        "source": "**",
+        "headers": [
+          { "key": "X-Content-Type-Options", "value": "nosniff" },
+          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        ]
       }
     ]
   }

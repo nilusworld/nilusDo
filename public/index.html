@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="nilusDO — tasks, focus and time tracking.">
+<title>nilusDO</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="nilusDO">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f7f7f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#131417" media="(prefers-color-scheme: dark)">
+<script src="/theme-init.js"></script>
+<link rel="stylesheet" href="/app.css">
+<script src="/firebase-config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+</head>
+<body>
+
+<div class="splash" id="splash" aria-busy="true"></div>
+
+<!-- /login -->
+<main class="auth-page" id="loginPage" hidden>
+  <form class="auth-card" onsubmit="event.preventDefault();doLogin()">
+    <h1 class="brand"><span class="lite">nilus</span><b>DO</b></h1>
+    <label>Email<input id="loginEmail" type="email" autocomplete="username" required></label>
+    <label>Password<input id="loginPass" type="password" autocomplete="current-password" required></label>
+    <p class="form-error" id="loginErr" role="alert"></p>
+    <button class="button primary" type="submit">Log in</button>
+    <a class="auth-link" href="/forgot-password" data-link>Forgot password?</a>
+  </form>
+</main>
+
+<!-- /forgot-password -->
+<main class="auth-page" id="forgotPage" hidden>
+  <form class="auth-card" onsubmit="event.preventDefault();doResetPassword()">
+    <h1 class="brand"><span class="lite">nilus</span><b>DO</b></h1>
+    <p class="muted">Enter your email and we'll send you a link to reset your password.</p>
+    <label>Email<input id="resetEmail" type="email" autocomplete="username" required></label>
+    <p class="form-error" id="resetErr" role="alert"></p>
+    <p class="form-ok" id="resetOk" role="status"></p>
+    <button class="button primary" type="submit" id="resetBtn">Send reset link</button>
+    <a class="auth-link" href="/login" data-link>Back to log in</a>
+  </form>
+</main>
+
+<!-- App -->
+<div class="app" id="app" hidden>
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+    <div class="sidebar-brand">
+      <span class="sidebar-label brand"><span class="lite">nilus</span><b>DO</b></span>
+      <button type="button" class="icon-button sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" aria-label="Collapse sidebar" title="Collapse sidebar"></button>
+    </div>
+    <nav id="sideNav"></nav>
+    <button class="button ghost sidebar-signout" onclick="signOut()" title="Log out">
+      <span data-icon="logout"></span><span class="sidebar-label">Log out</span>
+    </button>
+  </aside>
+  <div class="scrim" id="scrim" hidden onclick="closeMenu()"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="button ghost menu-button" aria-label="Open menu" onclick="openMenu()">☰</button>
+      <h1 class="topbar-title" id="pageTitle"></h1>
+      <div class="topbar-right">
+        <button class="global-timer" id="globalTimer" onclick="goToActiveTask()" title="Go to the running timer">
+          <span class="gt-dot"></span>
+          <span class="gt-time" id="gtTime">0:00</span>
+          <span class="gt-name" id="gtName" title="Click to rename" onclick="renameActiveTask(event)"></span>
+        </button>
+        <span class="pill done-badge" id="doneBadge" style="display:none"></span>
+        <span class="pill sync-badge offline" id="syncBadge">Offline</span>
+        <button class="button primary topbar-capture" onclick="quickAdd()" title="New task (Ctrl+Shift+Space)">+ Task</button>
+      </div>
+    </header>
+    <button class="fab" aria-label="New task" onclick="quickAdd()">+</button>
+
+    <main class="content">
+
+      <!-- Focus / All / category -->
+      <section class="view" id="view-tasks">
+        <div class="scrum-bar" id="scrumBar"></div>
+
+        <div class="composer" id="composer">
+          <div class="input-row">
+            <input class="ti" id="ti" placeholder="Add a task…" autocomplete="off" onkeydown="if(event.key==='Enter')addTask()">
+            <button class="icon-button mic" id="mic" onclick="toggleVoice()" title="Dictate a task" aria-label="Dictate a task"><span data-icon="mic"></span></button>
+            <button class="button primary" id="plusBtn" onclick="addTask()">Add</button>
+          </div>
+          <div class="composer-more">
+            <div class="meta-row">
+              <label class="add-to" id="addToWrap" hidden><span class="nav-dot" id="addToDot"></span>Add to
+                <select id="addToSel" onchange="setAddTarget(this.value)"></select></label>
+              <div class="segmented small" role="group" aria-label="Priority">
+                <button class="pri-btn" id="priBtn1" onclick="setPri(1)">P1</button>
+                <button class="pri-btn" id="priBtn2" onclick="setPri(2)">P2</button>
+                <button class="pri-btn" id="priBtn3" onclick="setPri(3)">P3</button>
+                <button class="pri-btn" id="priBtn4" onclick="setPri(4)">P4</button>
+              </div>
+              <label class="ref-wrap" title="Jira ticket"><span class="ref-pfx jira-pfx" id="jiraPfxLbl">CTI-</span>
+                <input id="jiraInput" placeholder="123" maxlength="12" type="text" autocomplete="off"></label>
+              <label class="ref-wrap" title="Case number"><span class="ref-pfx case-pfx" id="casePfxLbl">Case-</span>
+                <input id="caseInput" placeholder="123" maxlength="16" type="text" autocomplete="off"></label>
+              <button class="button small date-btn" id="dateBtnEl" onclick="openCalAdd()"><span data-icon="calendar"></span><span id="dateBtnLbl">Due date</span></button>
+              <button class="icon-button" id="dateXBtn" onclick="clearAddDate()" style="display:none" aria-label="Clear due date"><span data-icon="x"></span></button>
+            </div>
+            <div class="presets-wrap" id="presetsWrap"><div class="presets-scroll" id="presetsScroll"></div></div>
+            <div class="composer-foot">
+              <button class="foot-btn" id="presetsBtn" onclick="togglePresets()"><span id="presetArr">▸</span> Quick presets</button>
+              <span class="today-lbl" id="todayLbl"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="sec-hdr">
+          <span class="sec-title" id="secTitle"></span>
+          <button class="clear-btn" onclick="clearDone()">Clear done</button>
+        </div>
+        <div class="tasks" id="taskList"></div>
+      </section>
+
+      <!-- /plan -->
+      <section class="view" id="view-plan" hidden>
+        <div class="plan-head">
+          <h2>Daily Plan</h2>
+          <div id="planPrintDate"></div>
+        </div>
+        <div class="page-header plan-noprint">
+          <h2 class="page-title">Daily plan <span id="planDateLbl" class="muted" style="font-size:.9rem;font-weight:500"></span></h2>
+          <button class="button" onclick="printPlan()"><span data-icon="print"></span>Print</button>
+        </div>
+        <div class="card-box"><div id="planBody"></div></div>
+      </section>
+
+      <!-- /report -->
+      <section class="view" id="view-report" hidden>
+        <div class="page-header">
+          <h2 class="page-title">Time report</h2>
+          <button class="button" onclick="copyReport()"><span data-icon="copy"></span>Copy for Tempo</button>
+        </div>
+        <div class="rep-controls">
+          <input type="date" id="repDate" onchange="renderReport()">
+          <div class="segmented small" role="group" aria-label="Range">
+            <button id="repRangeDay" class="active" onclick="setRepRange('day')">Day</button>
+            <button id="repRangeWeek" onclick="setRepRange('week')">Week</button>
+          </div>
+          <select id="repRange" hidden><option value="day">Day</option><option value="week">Week</option></select>
+          <select id="repRound" onchange="renderReport()" aria-label="Rounding">
+            <option value="0">Exact</option>
+            <option value="5">Round 5m</option>
+            <option value="15">Round 15m</option>
+          </select>
+        </div>
+        <div class="card-box"><div id="repBody"></div></div>
+      </section>
+
+      <!-- /settings -->
+      <section class="view" id="view-settings" hidden>
+        <h2 class="page-title" style="margin-bottom:20px">Settings</h2>
+
+        <div class="settings-group">
+          <h2>Appearance</h2>
+          <p class="hint">Theme for this device.</p>
+          <div class="segmented" role="group" aria-label="Theme" id="themeSeg">
+            <button data-mode="system" onclick="setThemeMode('system')">System</button>
+            <button data-mode="light" onclick="setThemeMode('light')">Light</button>
+            <button data-mode="dark" onclick="setThemeMode('dark')">Dark</button>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h2>Display</h2>
+          <label class="field">Time format
+            <select id="timeFmtSel" onchange="setTimeFormat()">
+              <option value="12h">12-hour (7:00 PM)</option>
+              <option value="24h">24-hour (19:00)</option>
+            </select></label>
+        </div>
+
+        <div class="settings-group">
+          <h2>Jira</h2>
+          <label class="field">Ticket prefix (e.g. CTI-, PROJ-)
+            <input id="jiraPrefixSetting" placeholder="CTI-" value="CTI-" oninput="updateJiraPrefix()"></label>
+          <label class="field">Jira base URL (optional — makes tickets clickable)
+            <input id="jiraUrlSetting" placeholder="https://jira.company.com/browse/" oninput="saveSettings()"></label>
+        </div>
+
+        <div class="settings-group">
+          <h2>Case</h2>
+          <label class="field">Case prefix (e.g. Case-)
+            <input id="casePrefixSetting" placeholder="Case-" value="Case-" oninput="updateCasePrefix()"></label>
+          <label class="field">Case base URL (optional — makes cases clickable)
+            <input id="caseUrlSetting" placeholder="https://support.company.com/case/" oninput="saveSettings()"></label>
+        </div>
+
+        <div class="settings-group">
+          <h2>Scrum quick-actions</h2>
+          <p class="hint">Each activity becomes a one-tap timer button above your tasks.</p>
+          <label class="field">Category for activity tasks
+            <select id="scrumCatSel" onchange="setScrumCategory()"></select></label>
+          <ul class="cat-list" id="scrumActList"></ul>
+          <div class="inline-form">
+            <input id="newScrumAct" placeholder="e.g. Sprint Planning" onkeydown="if(event.key==='Enter')addScrumActivity()">
+            <button class="button primary" onclick="addScrumActivity()">Add</button>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h2>Categories</h2>
+          <p class="hint">Arrows reorder the sidebar. ✏️ asks for a name whenever a timer in that category stops (great for meetings).</p>
+          <ul class="cat-list" id="catListEl"></ul>
+          <label class="field">New category
+            <input id="newCatName" placeholder="Name (e.g. Design, Support…)" onkeydown="if(event.key==='Enter')addCategory()"></label>
+          <div class="swatches" id="swatchEl"></div>
+          <button class="button primary" onclick="addCategory()">Add category</button>
+        </div>
+
+        <div class="settings-group">
+          <h2>Backup</h2>
+          <p class="hint">Download everything (tasks, categories, time logs, settings) as a file you keep — or restore from one. Your safety net if anything ever goes wrong with the account.</p>
+          <div class="button-row">
+            <button class="button" onclick="exportData()">Export backup (.json)</button>
+            <input type="file" id="importFile" accept="application/json,.json" hidden onchange="importData(event)">
+            <button class="button" onclick="document.getElementById('importFile').click()">Import backup…</button>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h2>Account</h2>
+          <p class="hint" id="accountEmail"></p>
+          <button class="button danger" onclick="signOut()">Log out</button>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- Calendar dialog -->
+<div class="overlay" id="calOverlay" onclick="if(event.target===this)closeCal()">
+  <div class="sheet" role="dialog" aria-label="Pick a due date" style="max-width:400px">
+    <div class="cal-nav">
+      <button class="icon-button" onclick="calNav(-1)" aria-label="Previous month">‹</button>
+      <span class="cal-month-lbl" id="calMonthLbl"></span>
+      <button class="icon-button" onclick="calNav(1)" aria-label="Next month">›</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="sheet-buttons">
+      <button class="button danger" onclick="calClearDate()">Remove</button>
+      <button class="button" onclick="closeCal()">Cancel</button>
+      <button class="button primary" onclick="setCalToday()">Today</button>
+    </div>
+  </div>
+</div>
+
+<!-- Time log dialog -->
+<div class="overlay" id="timeLogModal" onclick="if(event.target===this)closeTimeLog()">
+  <div class="sheet" role="dialog" aria-label="Time log">
+    <h2>Time log</h2>
+    <div class="log-task" id="timeLogTask"></div>
+    <div class="log-total" id="timeLogTotal"></div>
+    <div class="log-hint">Each session shows its start → end time. Edit any time and the duration recalculates automatically — then Save.</div>
+    <div class="sessions-list" id="sessionsList"></div>
+    <button class="button small" onclick="addManualSession()">+ Add time entry</button>
+    <div class="sheet-buttons">
+      <button class="button" onclick="closeTimeLog()">Cancel</button>
+      <button class="button primary" onclick="saveTimeLog()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-region" id="toastRegion" role="status" aria-live="polite"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>
