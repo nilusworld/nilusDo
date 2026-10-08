@@ -1,0 +1,22 @@
+{
+  "hosting": {
+    "site": "nilusdo",
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      ".firebaserc",
+      "**/.*",
+      "**/node_modules/**",
+      "nilusDO/**"
+    ],
+    "rewrites": [
+      { "source": "**", "destination": "/tasks.html" }
+    ],
+    "headers": [
+      {
+        "source": "**/*.html",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      }
+    ]
+  }
+}
