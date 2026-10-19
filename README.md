@@ -29,3 +29,8 @@ No build step. Data lives in the Firebase Realtime Database, so deploying never 
 ```bash
 firebase serve --only hosting     # http://localhost:5000
 ```
+
+## Accounts
+Public sign-up is switched off (Firebase Auth `disabledUserSignup`), so nobody can create an account on their own; the
+app only offers sign-in and password reset. To add someone: Firebase console → project `tasklist-1f1bd` →
+**Authentication** → **Users** → **Add user**, then enter their email and a password.
