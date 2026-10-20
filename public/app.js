@@ -28,15 +28,22 @@ let settings={ jiraPrefix:'CTI-', jiraBaseUrl:'', casePrefix:'Case-', caseBaseUr
 let warnedSessions=new Set(), staleChecked=false;
 
 // ── Firebase ──────────────────────────────────────────────────────────────────
-// authState: 'loading' until Firebase answers, then 'in' / 'out'; 'local' = Firebase unavailable, device-only mode
+// Modular SDK, loaded on demand (the old "compat" SDK has no authenticator-app support).
+const FB_CDN='https://www.gstatic.com/firebasejs/12.4.0/';
+let FB=null;                           // all SDK functions: FB.ref, FB.onValue, FB.signOut …
+const dbRef=path=>FB.ref(db,path);
+// authState: 'loading' until Firebase answers, then 'in' / 'out'; 'setup' = signed in with a password but no
+// authenticator app linked yet; 'local' = Firebase unavailable, device-only mode
 let authState='loading';
-function initFirebase() {
+async function initFirebase() {
   try {
-    firebase.initializeApp(FIREBASE_CONFIG);
-    db=firebase.database();
-    auth=firebase.auth();
-    db.ref('.info/connected').on('value',s=>setSyncBadge(s.val()?'online':'offline'));
-    auth.onAuthStateChanged(user=>{ user ? onSignedIn(user) : onSignedOut(); });
+    const mods=await Promise.all(['firebase-app','firebase-auth','firebase-database'].map(n=>import(FB_CDN+n+'.js')));
+    FB=Object.assign({},...mods);
+    const app=FB.initializeApp(FIREBASE_CONFIG);
+    db=FB.getDatabase(app);
+    auth=FB.getAuth(app);
+    FB.onValue(dbRef('.info/connected'),s=>setSyncBadge(s.val()?'online':'offline'));
+    FB.onAuthStateChanged(auth,user=>{ user ? onSignedIn(user) : onSignedOut(); });
   } catch(e){
     console.error(e); db=null; auth=null; setSyncBadge('error');
     // Offline / init failure: allow local-only access on this device
@@ -47,18 +54,36 @@ function initFirebase() {
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
-let listenersAttached=false;
-function onSignedIn(user){
+// Every sign-in needs the password AND a 6-digit code from an authenticator app (TOTP). The database
+// rules refuse anyone whose sign-in skipped the code, so the app only loads data after a two-step sign-in.
+let listenersAttached=false, mfaResolver=null, mfaSecret=null;
+const errCode=e=>(e&&e.code)||'';
+async function onSignedIn(user){
+  let token;
+  try{ token=await user.getIdTokenResult(); }catch(e){ console.error(e); }
+  const twoStep=!!(token&&token.claims.firebase&&token.claims.firebase.sign_in_second_factor);
+  if(!twoStep){
+    if(FB.multiFactor(user).enrolledFactors.length){
+      // Old session from before the app was linked: sign in again with a code
+      FB.signOut(auth); setLoginMsg('','Sign in again with your password and the code from your authenticator app.');
+      return;
+    }
+    authState='setup'; startMfaSetup(user); route(); return;
+  }
   authState='in';
-  const err=document.getElementById('loginErr'); if(err)err.textContent='';
+  setLoginMsg('','');
   const pass=document.getElementById('loginPass'); if(pass)pass.value='';
-  const acct=document.getElementById('accountEmail'); if(acct)acct.textContent=user&&user.email?('Signed in as '+user.email):'';
+  const acct=document.getElementById('accountEmail'); if(acct)acct.textContent=user&&user.email?('Signed in as '+user.email+' · two-step sign-in is on'):'';
   if(!listenersAttached){ attachDataListeners(); listenersAttached=true; }
   route();
 }
 function onSignedOut(){
   authState='out';
   route();
+}
+function setLoginMsg(err,ok){
+  document.getElementById('loginErr').textContent=err;
+  document.getElementById('loginOk').textContent=ok;
 }
 function doResetPassword(){
   const email=document.getElementById('resetEmail').value.trim();
@@ -68,10 +93,10 @@ function doResetPassword(){
   if(!auth){ err.textContent='Auth not ready — check your connection.'; return; }
   const btn=document.getElementById('resetBtn'); btn.disabled=true;
   const sent='If an account exists for '+email+', a reset link is on its way. Check your inbox.';
-  auth.sendPasswordResetEmail(email)
+  FB.sendPasswordResetEmail(auth,email)
     .then(()=>{ ok.textContent=sent; })
     .catch(e=>{
-      const code=(e&&e.code)||'';
+      const code=errCode(e);
       if(code.includes('invalid-email')) err.textContent='That email looks invalid.';
       else if(code.includes('too-many-requests')) err.textContent='Too many attempts — try again later.';
       else if(code.includes('network')) err.textContent='Network error — check your connection.';
@@ -82,12 +107,44 @@ function doResetPassword(){
 function doLogin(){
   const email=document.getElementById('loginEmail').value.trim();
   const pass=document.getElementById('loginPass').value;
-  const err=document.getElementById('loginErr');
-  err.textContent='';
-  if(!email||!pass){ err.textContent='Enter email and password.'; return; }
-  if(!auth){ err.textContent='Auth not ready — check your connection.'; return; }
-  auth.signInWithEmailAndPassword(email,pass)
-    .catch(e=>{ err.textContent = (e&&e.code) ? loginErrMsg(e.code) : 'Sign-in failed.'; });
+  setLoginMsg('','');
+  if(!email||!pass){ setLoginMsg('Enter email and password.',''); return; }
+  if(!auth){ setLoginMsg('Auth not ready — check your connection.',''); return; }
+  FB.signInWithEmailAndPassword(auth,email,pass)
+    .catch(e=>{
+      if(errCode(e)==='auth/multi-factor-auth-required'){
+        mfaResolver=FB.getMultiFactorResolver(auth,e);
+        showLoginStep('code');
+      } else setLoginMsg(errCode(e)?loginErrMsg(errCode(e)):'Sign-in failed.','');
+    });
+}
+function showLoginStep(step){
+  const code=step==='code';
+  document.getElementById('loginForm').hidden=code;
+  document.getElementById('loginCodeForm').hidden=!code;
+  const c=document.getElementById('loginCode'); c.value='';
+  if(code) setTimeout(()=>c.focus(),0); else mfaResolver=null;
+}
+function doLoginCode(){
+  const code=document.getElementById('loginCode').value.replace(/\s/g,'');
+  const btn=document.getElementById('loginCodeBtn');
+  setLoginMsg('','');
+  if(!mfaResolver){ showLoginStep('password'); return; }
+  const hint=mfaResolver.hints.find(h=>h.factorId===FB.TotpMultiFactorGenerator.FACTOR_ID);
+  if(!hint){ setLoginMsg('This account has no authenticator app linked.',''); return; }
+  btn.disabled=true;
+  mfaResolver.resolveSignIn(FB.TotpMultiFactorGenerator.assertionForSignIn(hint.uid,code))
+    .then(()=>{ mfaResolver=null; document.getElementById('loginCodeForm').hidden=true; document.getElementById('loginForm').hidden=false; })
+    .catch(e=>{
+      if(errCode(e)==='auth/invalid-verification-code'){
+        setLoginMsg('That code did not work. Use the newest code from your authenticator app.','');
+        document.getElementById('loginCode').select();
+      } else {
+        showLoginStep('password');
+        setLoginMsg(errCode(e).includes('too-many-requests')?'Too many attempts — try again later.':'Sign-in took too long. Start again with your password.','');
+      }
+    })
+    .finally(()=>{ btn.disabled=false; });
 }
 function loginErrMsg(code){
   if(code.includes('wrong-password')||code.includes('invalid-credential'))return 'Wrong email or password.';
@@ -100,27 +157,97 @@ function loginErrMsg(code){
 function signOut(){
   if(findActiveSession()&&!confirm('A timer is still running. It keeps running while you are logged out.\n\nLog out anyway?'))return;
   const go=()=>location.replace('/login');
-  if(auth) auth.signOut().then(go).catch(go);
+  if(auth) FB.signOut(auth).then(go).catch(go);
   else go();
 }
 
+// ── Two-step sign-in setup (shown once per account) ──────────────────────────
+// 1) confirm the email address (Firebase requires it), 2) link an authenticator app, 3) sign in again with a code
+function setMfaMsg(err,ok){
+  document.getElementById('mfaErr').textContent=err;
+  document.getElementById('mfaOk').textContent=ok;
+}
+function startMfaSetup(user){
+  setMfaMsg('','');
+  document.getElementById('mfaVerify').hidden=user.emailVerified;
+  document.getElementById('mfaEnroll').hidden=!user.emailVerified;
+  if(user.emailVerified) makeMfaSecret(user);
+}
+async function makeMfaSecret(user){
+  if(mfaSecret)return;
+  const qr=document.getElementById('mfaQr'), link=document.getElementById('mfaLink');
+  qr.hidden=true; link.hidden=true; document.getElementById('mfaKeyBox').hidden=true;
+  document.getElementById('mfaPreparing').hidden=false;
+  try{
+    const session=await FB.multiFactor(user).getSession();
+    mfaSecret=await FB.TotpMultiFactorGenerator.generateSecret(session);
+    const url=mfaSecret.generateQrCodeUrl(user.email||'nilusDO','nilusDO');
+    link.href=url; link.hidden=false;
+    document.getElementById('mfaKey').textContent=mfaSecret.secretKey.replace(/(.{4})/g,'$1 ').trim();
+    document.getElementById('mfaKeyBox').hidden=false;
+    try{
+      const QRCode=(await import('https://cdn.jsdelivr.net/npm/qrcode@1.5.4/+esm')).default;
+      qr.src=await QRCode.toDataURL(url,{margin:1,width:220}); qr.hidden=false;
+    }catch(e){ console.error(e); document.getElementById('mfaKeyBox').open=true; }
+  }catch(e){
+    setMfaMsg(errCode(e)==='auth/requires-recent-login'
+      ?'For safety, log out and log in again, then set up the app right away.'
+      :'Could not start setup ('+(errCode(e)||'unknown error')+').','');
+  }
+  document.getElementById('mfaPreparing').hidden=true;
+}
+function mfaSendLink(){
+  const user=auth.currentUser, btn=document.getElementById('mfaSendBtn');
+  btn.disabled=true; setMfaMsg('','');
+  FB.sendEmailVerification(user)
+    .then(()=>setMfaMsg('','Sent. Open the email to '+user.email+', click the link, then come back here and tap “I clicked the link”.'))
+    .catch(e=>setMfaMsg(errCode(e).includes('too-many-requests')?'Too many emails — wait a few minutes and try again.':'Could not send the email ('+errCode(e)+').',''))
+    .finally(()=>{ btn.disabled=false; });
+}
+async function mfaCheckVerified(){
+  const user=auth.currentUser;
+  try{ await user.reload(); }catch(e){ setMfaMsg('Could not check — try again.',''); return; }
+  if(!user.emailVerified){ setMfaMsg('Not confirmed yet. Click the link in the email first.',''); return; }
+  await user.getIdToken(true);
+  startMfaSetup(user);
+}
+function mfaEnroll(){
+  const user=auth.currentUser, btn=document.getElementById('mfaEnrollBtn');
+  const code=document.getElementById('mfaCode').value.replace(/\s/g,'');
+  if(!mfaSecret)return;
+  btn.disabled=true; setMfaMsg('','');
+  FB.multiFactor(user).enroll(FB.TotpMultiFactorGenerator.assertionForEnrollment(mfaSecret,code),'Authenticator app')
+    .then(()=>{
+      mfaSecret=null;
+      setLoginMsg('','Two-step sign-in is on. Log in again with your password and the code from your authenticator app.');
+      return FB.signOut(auth).then(()=>navigate('/login',true));
+    })
+    .catch(e=>setMfaMsg(errCode(e)==='auth/invalid-verification-code'?'That code did not work. Type the newest one.':'Setup failed ('+(errCode(e)||'unknown error')+').',''))
+    .finally(()=>{ btn.disabled=false; });
+}
+function mfaCancel(){
+  mfaSecret=null;
+  const go=()=>location.replace('/login');
+  FB.signOut(auth).then(go).catch(go);
+}
+
 function attachDataListeners(){
-  db.ref('settings').on('value', snap=>{
+  FB.onValue(dbRef('settings'), snap=>{
     const v=snap.val();
     if(v){ settings={...settings,...v}; applySettings(); }
   });
-  db.ref('categories').on('value',snap=>{
+  FB.onValue(dbRef('categories'),snap=>{
     const v=snap.val();
     if(v&&Object.keys(v).length){
       cats=Object.values(v).sort((a,b)=>(a.order||0)-(b.order||0));
     } else {
       cats=DEFAULTS.map((c,i)=>({...c,order:i}));
-      db.ref('categories').set(Object.fromEntries(cats.map(c=>[c.id,c])));
+      FB.set(dbRef('categories'),Object.fromEntries(cats.map(c=>[c.id,c])));
     }
     cats.forEach(c=>{if(!tasks[c.id])tasks[c.id]=[];});
     render();
   });
-  db.ref('tasks').on('value',snap=>{
+  FB.onValue(dbRef('tasks'),snap=>{
     const v=snap.val()||{};
     cats.forEach(c=>{tasks[c.id]=v[c.id]?Object.values(v[c.id]):[];});
     Object.keys(v).forEach(k=>{if(!tasks[k])tasks[k]=Object.values(v[k]);});
@@ -142,15 +269,15 @@ function saveTasks(){
   if(!db){saveLocal();return;}
   const data={};
   cats.forEach(c=>{data[c.id]={};(tasks[c.id]||[]).forEach(t=>{data[c.id][t.id]=t;});});
-  db.ref('tasks').set(data).catch(saveLocal);
+  FB.set(dbRef('tasks'),data).catch(saveLocal);
 }
 function saveCats(){
   if(!db){saveLocal();return;}
-  db.ref('categories').set(Object.fromEntries(cats.map((c,i)=>[c.id,{...c,order:i}])));
+  FB.set(dbRef('categories'),Object.fromEntries(cats.map((c,i)=>[c.id,{...c,order:i}])));
 }
 function saveSettingsRemote(){
   if(!db){saveLocal();return;}
-  db.ref('settings').set(settings);
+  FB.set(dbRef('settings'),settings);
 }
 function saveLocal(){
   localStorage.setItem('tc_cats',JSON.stringify(cats));
@@ -1328,7 +1455,8 @@ function route(){
   if(!r){ navigate('/',true); return; }
   const signedIn=authState==='in'||authState==='local';
   show('splash',authState==='loading');
-  if(authState==='loading'){ show('loginPage',false); show('forgotPage',false); show('app',false); return; }
+  show('mfaPage',authState==='setup');
+  if(authState==='loading'||authState==='setup'){ show('loginPage',false); show('forgotPage',false); show('app',false); return; }
 
   if(r.view==='login'||r.view==='forgot-password'){
     if(signedIn){ const to=loginReturnTo; loginReturnTo='/'; navigate(to,true); return; }
@@ -1387,7 +1515,7 @@ document.addEventListener('click',e=>{
 window.addEventListener('popstate',route);
 // Ctrl/⌘+Shift+Space = new task (same shortcut as nilusCap's quick capture); Esc closes dialogs/menu
 window.addEventListener('keydown',e=>{
-  if(e.code==='Space'&&e.shiftKey&&(e.metaKey||e.ctrlKey)&&authState!=='out'&&authState!=='loading'){ e.preventDefault(); quickAdd(); }
+  if(e.code==='Space'&&e.shiftKey&&(e.metaKey||e.ctrlKey)&&(authState==='in'||authState==='local')){ e.preventDefault(); quickAdd(); }
   if(e.key==='Escape'){
     if(document.getElementById('calOverlay').classList.contains('open'))closeCal();
     else if(document.getElementById('timeLogModal').classList.contains('open'))closeTimeLog();

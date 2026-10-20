@@ -17,9 +17,6 @@
 <script src="/theme-init.js"></script>
 <link rel="stylesheet" href="/app.css">
 <script src="/firebase-config.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 </head>
 <body>
 
@@ -27,14 +24,24 @@
 
 <!-- /login -->
 <main class="auth-page" id="loginPage" hidden>
-  <form class="auth-card" onsubmit="event.preventDefault();doLogin()">
+  <div class="auth-card">
     <h1 class="brand"><span class="lite">nilus</span><b>DO</b></h1>
-    <label>Email<input id="loginEmail" type="email" autocomplete="username" required></label>
-    <label>Password<input id="loginPass" type="password" autocomplete="current-password" required></label>
+    <form class="auth-step" id="loginForm" onsubmit="event.preventDefault();doLogin()">
+      <label>Email<input id="loginEmail" type="email" autocomplete="username" required></label>
+      <label>Password<input id="loginPass" type="password" autocomplete="current-password" required></label>
+      <button class="button primary" type="submit">Log in</button>
+      <a class="auth-link" href="/forgot-password" data-link>Forgot password?</a>
+    </form>
+    <!-- Step 2: code from the authenticator app -->
+    <form class="auth-step" id="loginCodeForm" onsubmit="event.preventDefault();doLoginCode()" hidden>
+      <p>Open your authenticator app and type the 6-digit code for nilusDO.</p>
+      <label>6-digit code<input id="loginCode" class="code-input" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" required></label>
+      <button class="button primary" type="submit" id="loginCodeBtn">Verify</button>
+      <button class="button ghost" type="button" onclick="showLoginStep('password');setLoginMsg('','')">Back</button>
+    </form>
     <p class="form-error" id="loginErr" role="alert"></p>
-    <button class="button primary" type="submit">Log in</button>
-    <a class="auth-link" href="/forgot-password" data-link>Forgot password?</a>
-  </form>
+    <p class="form-ok" id="loginOk" role="status"></p>
+  </div>
 </main>
 
 <!-- /forgot-password -->
@@ -48,6 +55,31 @@
     <button class="button primary" type="submit" id="resetBtn">Send reset link</button>
     <a class="auth-link" href="/login" data-link>Back to log in</a>
   </form>
+</main>
+
+<!-- Two-step sign-in setup (once per account) -->
+<main class="auth-page" id="mfaPage" hidden>
+  <div class="auth-card">
+    <h1 class="brand"><span class="lite">nilus</span><b>DO</b></h1>
+    <h2 class="auth-title">Two-step sign-in</h2>
+    <div class="auth-step" id="mfaVerify" hidden>
+      <p>nilusDO now asks for a code from an authenticator app every time you log in. First, confirm your email address.</p>
+      <button class="button primary" type="button" id="mfaSendBtn" onclick="mfaSendLink()">Send confirmation email</button>
+      <button class="button" type="button" onclick="mfaCheckVerified()">I clicked the link</button>
+    </div>
+    <form class="auth-step" id="mfaEnroll" onsubmit="event.preventDefault();mfaEnroll()" hidden>
+      <p>Scan this with your authenticator app (iPhone camera → <i>Set up in Passwords</i>, Google Authenticator, 1Password…). Then type the 6-digit code it shows.</p>
+      <p class="muted" id="mfaPreparing">Preparing…</p>
+      <img class="mfa-qr" id="mfaQr" alt="QR code for your authenticator app" width="220" height="220" hidden>
+      <a class="auth-link" id="mfaLink" hidden>On this phone? Tap to open your authenticator app</a>
+      <details class="mfa-key" id="mfaKeyBox" hidden><summary>Type the key by hand instead</summary><code id="mfaKey"></code></details>
+      <label>6-digit code<input id="mfaCode" class="code-input" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" required></label>
+      <button class="button primary" type="submit" id="mfaEnrollBtn">Turn on two-step sign-in</button>
+    </form>
+    <p class="form-error" id="mfaErr" role="alert"></p>
+    <p class="form-ok" id="mfaOk" role="status"></p>
+    <button class="button ghost" type="button" onclick="mfaCancel()">Log out</button>
+  </div>
 </main>
 
 <!-- App -->

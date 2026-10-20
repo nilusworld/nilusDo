@@ -80,6 +80,12 @@ input:focus-visible,button:focus-visible,a:focus-visible,select:focus-visible,te
 .auth-card .brand{margin:0 0 6px;font-size:1.5rem}
 .auth-card p{margin:0}
 .auth-link{align-self:center;font-size:.9rem}
+.auth-step{flex-direction:column;gap:14px;display:flex}
+.auth-title{margin:0;font-size:1.1rem}
+.code-input{letter-spacing:.3em;font-size:1.3rem;text-align:center;font-variant-numeric:tabular-nums}
+.mfa-qr{align-self:center;background:#fff;border-radius:8px;padding:6px;width:220px;height:220px}
+.mfa-key{font-size:.9rem;color:var(--text-muted)}
+.mfa-key code{display:block;margin-top:6px;word-break:break-all;color:var(--text);font-size:1rem;user-select:all}
 .form-error{color:var(--danger);margin:0;font-size:.9rem;min-height:0}
 .form-error:empty{display:none}
 .form-ok{color:var(--image);margin:0;font-size:.9rem}
